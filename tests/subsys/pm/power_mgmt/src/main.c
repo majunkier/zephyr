@@ -27,10 +27,12 @@ static bool idle_entered;
 static bool testing_device_runtime;
 static bool testing_device_order;
 static bool testing_device_lock;
+static bool testing_force_state;
 
 static const struct device *device_dummy;
 static struct dummy_driver_api *api;
 
+enum pm_state forced_state;
 static const struct device *const device_a =
 	DEVICE_DT_GET(DT_INST(0, test_device_pm));
 static const struct device *const device_c =
@@ -186,6 +188,11 @@ void pm_state_set(enum pm_state state, uint8_t substate_id)
 	 */
 	zassert_true(set_pm == true,
 		     "Notification to enter suspend was not sent to the App");
+
+	if(testing_force_state){
+		zassert_equal(forced_state, state,NULL);
+		testing_force_state = false;
+	}
 
 	/* this function is called after devices enter low power state */
 	pm_device_state_get(device_dummy, &device_power_state);
@@ -442,6 +449,31 @@ ZTEST(power_management_1cpu, test_device_state_lock)
 	pm_device_state_unlock(device_a);
 
 	testing_device_lock = false;
+}
+
+ZTEST(power_management_1cpu, test_power_force_state)
+{
+	
+	testing_force_state = true;
+	enum pm_state power_state = PM_STATE_STANDBY;
+	forced_state = power_state;
+
+
+	bool state_changed = pm_state_force(1u, &(struct pm_state_info) {power_state, 0, 0});
+	zassert_equal(state_changed,true, "Error in force state");
+
+	k_sleep(K_SECONDS(1U));
+
+}
+
+ZTEST(power_management_1cpu, test_power_state_next_get){ //TODO add checking state during workflow 
+
+	static const struct pm_state_info state = {.state = PM_STATE_ACTIVE};
+
+	const struct pm_state_info *next;
+	next  = pm_state_next_get(0);
+
+	zassert_equal(next->state, state.state,NULL);
 }
 
 void power_management_1cpu_teardown(void *data)
