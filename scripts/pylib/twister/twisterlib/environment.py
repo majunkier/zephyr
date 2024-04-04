@@ -555,6 +555,16 @@ structure in the main Zephyr tree: boards/<arch>/<board_name>/""")
              "will be skipped with quarantine as the reason.")
 
     parser.add_argument(
+        "--scripting-list",
+        action="append",
+        metavar="FILENAME",
+        help="Load list of test scenarios with custom script list. The entries in "
+             "the file need to correspond to the test scenarios names as in "
+             "corresponding tests .yaml files. These scenarios "
+             "will be extended by custom script call as the reason.")
+
+
+    parser.add_argument(
         "--quarantine-verify",
         action="store_true",
         help="Use the list of test scenarios under quarantine and run them"
