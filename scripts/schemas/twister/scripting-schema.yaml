@@ -26,6 +26,7 @@ sequence:
               required: true
             "timeout":
               type: int
+              default: 30
               required: false
             "override_script":
               type: bool
@@ -37,9 +38,10 @@ sequence:
           mapping:
             "path":
               type: str
-              required: false
+              required: true
             "timeout":
               type: int
+              default: 30
               required: false
             "override_script":
               type: bool
@@ -51,9 +53,10 @@ sequence:
           mapping:
             "path":
               type: str
-              required: false
+              required: true
             "timeout":
               type: int
+              default: 30
               required: false
             "override_script":
               type: bool

@@ -969,10 +969,8 @@ class TestPlan:
                                 # If a script object is provided, check if the script path is a valid file
                                 if script_obj and script_obj.get('path'):
                                     # Check if there's an existing script and if override is not allowed
-                                    existing_script = getattr(dut, script_type, None)
-
-                                    if existing_script and not script_obj.get('override_script'):
-                                        logger.info(f"{script_type} is already set to {existing_script} on {plat.name} and will not be overridden.")
+                                    if not script_obj.get('override_script'):
+                                        logger.info(f"{script_type} will not be overridden on {plat.name}.")
                                         continue
                                     # Check if the script path is a valid file and set it on the DUT
                                     if Path(script_obj.get('path')).is_file():
