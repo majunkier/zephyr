@@ -624,6 +624,17 @@ structure in the main Zephyr tree: boards/<vendor>/<board_name>/""")
              "to verify their current status.")
 
     parser.add_argument(
+        "--scripting-list",
+        action="append",
+        metavar="FILENAME",
+        help="The feature is exclusively compatible with hardware-based "
+         "testing. It requires loading a list of test scenarios accompanied "
+         "by a custom script list. The entries within this list must align "
+         "with the names of the test scenarios as specified in the associated "
+         ".yaml files for the tests. These scenarios will be augmented "
+         "with calls to custom scripts.")
+
+    parser.add_argument(
         "--report-name",
         help="""Create a report with a custom name.
         """)
@@ -839,6 +850,10 @@ def parse_arguments(parser, args, options = None, on_init=True):
 
     if (not options.device_testing) and (options.device_serial or options.device_serial_pty or options.hardware_map):
         logger.error("Use --device-testing with --device-serial, or --device-serial-pty, or --hardware-map.")
+        sys.exit(1)
+
+    if options.scripting_list and not options.device_testing:
+        logger.error("When --scripting_list is used --device-testing is required")
         sys.exit(1)
 
     if options.device_testing and (options.device_serial or options.device_serial_pty) and len(options.platform) != 1:
