@@ -41,7 +41,6 @@ class Script:
 @dataclass
 # Represents a single scripting element with associated scripts and metadata.
 class ScriptingElement:
-
     scenarios: list[str] = field(default_factory=list)
     platforms: list[str] = field(default_factory=list)
     pre_script: Script | None = None
@@ -51,10 +50,18 @@ class ScriptingElement:
     re_scenarios: list[re.Pattern] = field(init=False, default_factory=list)
     re_platforms: list[re.Pattern] = field(init=False, default_factory=list)
 
-    # Compiles regex patterns for scenarios and platforms, and validates the element.
     def __post_init__(self):
         self.re_scenarios = [re.compile(pat) for pat in self.scenarios]
         self.re_platforms = [re.compile(pat) for pat in self.platforms]
+        
+        # Convert dictionaries to Script objects
+        if isinstance(self.pre_script, dict):
+            self.pre_script = Script(**self.pre_script)
+        if isinstance(self.post_flash_script, dict):
+            self.post_flash_script = Script(**self.post_flash_script)
+        if isinstance(self.post_script, dict):
+            self.post_script = Script(**self.post_script)
+        
         if not any([self.pre_script, self.post_flash_script, self.post_script]):
             logger.error("At least one of the scripts must be specified")
             sys.exit(1)
