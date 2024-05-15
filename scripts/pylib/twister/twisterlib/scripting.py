@@ -25,7 +25,7 @@ class Scripting:
     def get_matched_scripting(self, testname: str, platform: str) -> ScriptingElement | None:
         matched_scripting = self.scripting.find_matching_scripting(testname, platform)
         if matched_scripting:
-            logger.debug(
+            logger.info(
                 f"'{testname}' on '{platform}' device handler scripts '{str(matched_scripting)}'"
             )
             return matched_scripting

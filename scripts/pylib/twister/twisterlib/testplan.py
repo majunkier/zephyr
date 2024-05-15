@@ -1287,6 +1287,7 @@ class TestPlan:
 
             # Iterate over all DUTs to set the appropriate scripts
             # if they match the platform and are supported
+            log_messages = set()
             for dut in self.env.hwm.duts:
                 # Check if the platform matches and if the platform
                 # is supported by the matched scripting
@@ -1298,6 +1299,7 @@ class TestPlan:
                         script_obj = getattr(matched_scripting, script_type, None)
                         # If a script object is provided, check if the script path is a valid file
                         if script_obj and script_obj.path:
+                            logger.info(f"{script_type} xx {script_obj.path} MATI {platform_name}.")
                             # Check if there's an existing script and if override is not allowed
                             if not script_obj.override_script:
                                 logger.info(
@@ -1310,12 +1312,12 @@ class TestPlan:
                                 # Check if the script timeout is provided and set it on the DUT
                                 if script_obj.timeout is not None:
                                     setattr(dut, script_timeout, script_obj.timeout)
-                                    logger.info(
+                                    log_messages.add(
                                         f"{script_type} {script_obj.path} will be executed on "
                                         f"{platform_name} with timeout {script_obj.timeout}"
                                     )
                                 else:
-                                    logger.info(
+                                    log_messages.add(
                                         f"{script_type} {script_obj.path} will be executed on "
                                         f"{platform_name} with no timeout specified"
                                     )
@@ -1323,6 +1325,9 @@ class TestPlan:
                                 raise TwisterRuntimeError(
                                     f"{script_type} script not found under path: {script_obj.path}"
                                 )
+            for msg in log_messages:
+                logger.info(msg)
+            logger.info("debug flag")
             return True
         return False
 
