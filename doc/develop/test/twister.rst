@@ -1281,6 +1281,7 @@ An example of entries in a scripting list yaml:
 
 .. code-block:: yaml
 
+    - scenarios:
         - sample.basic.helloworld
         platforms:
         - frdm_k64f

@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
-
 from __future__ import annotations
 import logging
 import re
@@ -19,12 +18,10 @@ class Scripting:
     def __init__(self, scripting_files: list[Path | str], scripting_schema: dict) -> None:
         self.scripting = ScriptingData()
         self.scripting_files = scripting_files or []
-        for scripting_file in scripting_files:
-            self.scripting.extend(ScriptingData.load_from_yaml(scripting_file))
         self.scripting_schema = scripting_schema
         self.load_and_validate_files()
 
-    #Finds and returns the scripting element that matches the given test name and platform.
+    # Finds and returns the scripting element that matches the given test name and platform.
     def get_matched_scripting(self, testname: str, platform: str) -> ScriptingElement | None:
         matched_scripting = self.scripting.find_matching_scripting(testname, platform)
         if matched_scripting:
@@ -48,7 +45,7 @@ class ScriptingElement:
     re_scenarios: list[re.Pattern] = field(init=False, default_factory=list)
     re_platforms: list[re.Pattern] = field(init=False, default_factory=list)
 
-    #Compiles regex patterns for scenarios and platforms, and validates the element.
+    # Compiles regex patterns for scenarios and platforms, and validates the element.
     def __post_init__(self):
         self.re_scenarios = [re.compile(pat) for pat in self.scenarios if pat != 'all']
         self.re_platforms = [re.compile(pat) for pat in self.platforms if pat != 'all']
@@ -66,6 +63,7 @@ class ScriptingData:
         self.elements = [elem if isinstance(elem, ScriptingElement) else ScriptingElement(**elem) for elem in self.elements]
 
     @classmethod
+    # Loads scripting data from a YAML file.
     def load_from_yaml(cls, filename: Path | str, schema: dict) -> ScriptingData:
         try:
             raw_data = scl.yaml_load_verify(filename, schema) or []
