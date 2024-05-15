@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
-
 from __future__ import annotations
 import logging
 import re
@@ -18,8 +17,6 @@ class Scripting:
     def __init__(self, scripting_files: list[Path | str], scripting_schema: dict) -> None:
         self.scripting = ScriptingData()
         self.scripting_files = scripting_files or []
-        for scripting_file in scripting_files:
-            self.scripting.extend(ScriptingData.load_from_yaml(scripting_file))
         self.scripting_schema = scripting_schema
         self.load_and_validate_files()
 
