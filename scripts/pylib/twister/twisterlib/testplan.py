@@ -216,7 +216,7 @@ class TestPlan:
                     logger.debug(f'Quarantine file {quarantine_file} is empty')
             self.quarantine = Quarantine(ql)
 
-        #handle extra scripts
+        # handle extra scripts
         sl = self.options.scripting_list
         if sl:
             for scripting_file in sl:
@@ -224,9 +224,11 @@ class TestPlan:
                     # validate scripting yaml file against the provided schema
                     scl.yaml_load_verify(scripting_file, self.scripting_schema)
                 except scl.EmptyYamlFileException:
-                    logger.debug(f'Scripting file {scripting_file} is empty')
+                    logger.error(f'Scripting file {scripting_file} is empty')
+                    exit(1)
                 except FileNotFoundError:
                     logger.error(f'Scripting file {scripting_file} not found')
+                    exit(1)
             self.scripting = Scripting(sl)
 
     def load(self):
@@ -953,7 +955,7 @@ class TestPlan:
                                     script = getattr(matched_scripting, script_type, None)
                                     if script:
                                         if Path(script).is_file():
-                                            logger.info(f"{script_name} {script} will be executed")  # Validate if test exists
+                                            logger.info(f"{script_name} {script} will be executed")
                                             setattr(dut, script_name, script)
                                         else:
                                             logger.error(f"{script_name} script not found under path: {script}")

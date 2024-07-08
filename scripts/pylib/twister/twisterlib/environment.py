@@ -807,6 +807,10 @@ def parse_arguments(parser, args, options = None):
         logger.error("valgrind enabled but valgrind executable not found")
         sys.exit(1)
 
+    if options.scripting and not options.device_testing:
+        logger.error("When --scripting is used --device-testing is required")
+        sys.exit(1)
+
     if options.device_testing and (options.device_serial or options.device_serial_pty) and len(options.platform) != 1:
         logger.error("When --device-testing is used with --device-serial "
                      "or --device-serial-pty, exactly one platform must "
