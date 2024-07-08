@@ -1231,6 +1231,8 @@ before testing.
 
 To leverage the scripting capability, users must append the argument
 ``--scripting-list <PATH_TO_SCRIPTING_LIST_YAML>`` to a twister call.
+This option override ``--pre_script``,  ``--post_flash_script``, ``--post_script``
+commands specified via the command line.
 
 The scripting YAML should consist of a series of dictionaries,
 each containing the keys scenarios, ``scenarios``, ``platforms``,

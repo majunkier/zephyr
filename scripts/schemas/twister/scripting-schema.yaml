@@ -7,7 +7,7 @@ sequence:
     mapping:
       "scenarios":
         type: seq
-        required: false
+        required: true
         sequence:
           - type: str
           - unique: true
@@ -28,4 +28,4 @@ sequence:
         required: false
       "comment":
         type: str
-        required: false
+        required: true
