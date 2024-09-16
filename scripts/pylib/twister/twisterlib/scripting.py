@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 import sys
 import scl
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('twister')
 
 # Handles test scripting configurations.
 class Scripting:
@@ -24,7 +24,7 @@ class Scripting:
     def get_matched_scripting(self, testname: str, platform: str) -> ScriptingElement | None:
         matched_scripting = self.scripting.find_matching_scripting(testname, platform)
         if matched_scripting:
-            logger.debug(f'{testname} scripting with reason: {matched_scripting.comment}')
+            logger.debug(f"'{testname}' on '{platform}' device handler scripts '{str(matched_scripting)}'")
             return matched_scripting
         return None
 
@@ -33,13 +33,20 @@ class Scripting:
             self.scripting.extend(ScriptingData.load_from_yaml(scripting_file, self.scripting_schema))
 
 @dataclass
+class Script:
+    path: str | None = None
+    timeout: int | None = None
+    override_script: bool = False
+
+@dataclass
 # Represents a single scripting element with associated scripts and metadata.
 class ScriptingElement:
+
     scenarios: list[str] = field(default_factory=list)
     platforms: list[str] = field(default_factory=list)
-    pre_script: str | None = None
-    post_flash_script: str | None = None
-    post_script: str | None = None
+    pre_script: Script | None = None
+    post_flash_script: Script | None = None
+    post_script: Script | None = None
     comment: str = 'NA'
     re_scenarios: list[re.Pattern] = field(init=False, default_factory=list)
     re_platforms: list[re.Pattern] = field(init=False, default_factory=list)

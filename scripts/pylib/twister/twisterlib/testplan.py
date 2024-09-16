@@ -957,20 +957,34 @@ class TestPlan:
                         def validate_boards(platform_scope, platform_from_yaml):
                             return any(board in platform_scope for board in platform_from_yaml)
 
-                        # Define the types of scripts we are interested in
-                        script_types = {'pre_script': 'pre_script','post_flash_script': 'post_flash_script', 'post_script': 'post_script' }
+                # Define the types of scripts we are interested in as a set
+                script_types = {'pre_script': 'pre_script_timeout', 'post_flash_script': 'post_flash_timeout', 'post_script': 'post_script_timeout'}
+                # Iterate over all DUTs to set the appropriate scripts if they match the platform and are supported
+                for dut in self.env.hwm.duts:
+                    # Check if the platform matches and if the platform is supported by the matched scripting
+                    if dut.platform == plat.name and validate_boards(plat.name, matched_scripting.platforms):
+                        for script_type, script_timeout in script_types.items():
+                            # Get the script object from matched_scripting
+                            script_obj = getattr(matched_scripting, script_type, None)
+                            # If a script object is provided, check if the script path is a valid file
+                            if script_obj and script_obj.path:
+                                # Check if there's an existing script and if override is not allowed
+                                existing_script = getattr(dut, script_type, None)
+                                if existing_script and not script_obj.override_script:
+                                    logger.info(f"{script_type} is already set to {existing_script} on {plat.name} and will not be overridden.")
+                                    continue
 
-                        # Iterate over all DUTs to set the appropriate scripts if they match the platform and are supported
-                        for dut in self.env.hwm.duts:
-                            if dut.platform == plat.name and validate_boards(plat.name, matched_scripting.platforms):
-                                for script_type, script_name in script_types.items():
-                                    script = getattr(matched_scripting, script_type, None)
-                                    if script:
-                                        if Path(script).is_file():
-                                            logger.info(f"{script_name} {script} will be executed")
-                                            setattr(dut, script_name, script)
-                                        else:
-                                            logger.error(f"{script_name} script not found under path: {script}")
+                                # Check if the script path is a valid file and set it on the DUT
+                                if Path(script_obj.path).is_file():
+                                    setattr(dut, script_type, script_obj.path)
+                                    # Check if the script timeout is a provided and set it on the DUT
+                                    if script_obj.timeout is not None:
+                                        setattr(dut, script_timeout, script_obj.timeout)
+                                        logger.info(f"{script_type} {script_obj.path} will be executed on {plat.name} with timeout {script_obj.timeout}")
+                                    else:
+                                        logger.info(f"{script_type} {script_obj.path} will be executed on {plat.name}")
+                                else:
+                                    logger.error(f"{script_type} script not found under path: {script_obj.path}")
 
                 # platform_key is a list of unique platform attributes that form a unique key a test
                 # will match against to determine if it should be scheduled to run. A key containing a

@@ -642,7 +642,13 @@ structure in the main Zephyr tree: boards/<vendor>/<board_name>/""")
          "by a custom script list. The entries within this list must align "
          "with the names of the test scenarios as specified in the associated "
          ".yaml files for the tests. These scenarios will be augmented "
-         "with calls to custom scripts.")
+         "with calls to custom scripts.",
+        metavar="YAML_FILE",
+        help="YAML configuration file with device handler hooks to run additional "
+         "pre-/post- flash phase scripts for selected platform and test scenario combinations. "
+         "The file must comply with `scripting-schema.yaml`. "
+         "Overrides `--pre-script` and `--hardware-map` settings. "
+         "Requires `--device-testing`")
 
     parser.add_argument(
         "--report-name",
