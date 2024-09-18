@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 import pytest
-from twisterlib.scripting import Scripting, ScriptingData, ScriptingElement, _matches_element
+from twisterlib.scripting import Script, Scripting, ScriptingData, ScriptingElement, _matches_element
 from unittest.mock import mock_open, patch
 import re
 
@@ -14,18 +14,24 @@ class TestScriptingElement:
         element = ScriptingElement(
             scenarios=['scenario1', 'scenario2'],
             platforms=['platform1', 'platform2'],
-            pre_script='pre_script.sh',
-            post_flash_script='post_flash_script.sh',
-            post_script='post_script.sh',
+            pre_script=Script(path='pre_script.sh', timeout=10, override_script=True),
+            post_flash_script=Script(path='post_flash_script.sh', timeout=20, override_script=False),
+            post_script=Script(path='post_script.sh'),  # No timeout or override_script specified
             comment='Test comment'
         )
         # Check if the properties are set correctly
         assert element.scenarios == ['scenario1', 'scenario2']
         assert element.platforms == ['platform1', 'platform2']
-        assert element.pre_script == 'pre_script.sh'
-        assert element.post_flash_script == 'post_flash_script.sh'
-        assert element.post_script == 'post_script.sh'
+        assert element.pre_script.path == 'pre_script.sh'  # Compare the path attribute
+        assert element.post_flash_script.path == 'post_flash_script.sh'  # Compare the path attribute
+        assert element.post_script.path == 'post_script.sh'  # Compare the path attribute
         assert element.comment == 'Test comment'
+        assert element.pre_script.timeout == 10
+        assert element.pre_script.override_script is True
+        assert element.post_flash_script.timeout == 20
+        assert element.post_flash_script.override_script is False
+        assert element.post_script.timeout is None
+        assert element.post_script.override_script is False
         # Check if regex patterns are compiled correctly
         assert len(element.re_scenarios) == 2
         assert len(element.re_platforms) == 2
@@ -44,13 +50,28 @@ class TestScriptingElement:
         # Check if the correct exit code is set in the SystemExit exception
         assert excinfo.value.code == 1
 
+
 # Group related tests into a class for ScriptingData
 class TestScriptingData:
     @pytest.fixture
     def mock_scripting_elements(self):
         return [
-            ScriptingElement(scenarios=['scenario1'], platforms=['platform1']),
-            ScriptingElement(scenarios=['scenario2'], platforms=['platform2'])
+            ScriptingElement(
+                scenarios=['scenario1'],
+                platforms=['platform1'],
+                pre_script=Script(path='pre_script1.sh'),
+                post_flash_script=Script(path='post_flash_script1.sh'),
+                post_script=Script(path='post_script1.sh'),
+                comment='Test comment 1'
+            ),
+            ScriptingElement(
+                scenarios=['scenario2'],
+                platforms=['platform2'],
+                pre_script=Script(path='pre_script2.sh'),
+                post_flash_script=Script(path='post_flash_script2.sh'),
+                post_script=Script(path='post_script2.sh'),
+                comment='Test comment 2'
+            )
         ]
 
     def test_initialization_with_scripting_elements(self, mock_scripting_elements):
@@ -65,9 +86,21 @@ class TestScriptingData:
         yaml_content = '''
         - scenarios: ['scenario1']
           platforms: ['platform1']
+          pre_script:
+            path: 'pre_script1.sh'
+          post_flash_script:
+            path: 'post_flash_script1.sh'
+          post_script:
+            path: 'post_script1.sh'
           comment: 'Test comment 1'
         - scenarios: ['scenario2']
           platforms: ['platform2']
+          pre_script:
+            path: 'pre_script2.sh'
+          post_flash_script:
+            path: 'post_flash_script2.sh'
+          post_script:
+            path: 'post_script2.sh'
           comment: 'Test comment 2'
         '''
         # Define the schema as provided
@@ -109,8 +142,22 @@ class TestScriptingData:
             with patch('scl.yaml_load_verify') as mock_yaml_load_verify:
                 # Mock the yaml_load_verify function to return a list of dictionaries
                 mock_yaml_load_verify.return_value = [
-                    {'scenarios': ['scenario1'], 'platforms': ['platform1'], 'comment': 'Test comment 1'},
-                    {'scenarios': ['scenario2'], 'platforms': ['platform2'], 'comment': 'Test comment 2'}
+                    {
+                        'scenarios': ['scenario1'],
+                        'platforms': ['platform1'],
+                        'pre_script': {'path': 'pre_script1.sh'},
+                        'post_flash_script': {'path': 'post_flash_script1.sh'},
+                        'post_script': {'path': 'post_script1.sh'},
+                        'comment': 'Test comment 1'
+                    },
+                    {
+                        'scenarios': ['scenario2'],
+                        'platforms': ['platform2'],
+                        'pre_script': {'path': 'pre_script2.sh'},
+                        'post_flash_script': {'path': 'post_flash_script2.sh'},
+                        'post_script': {'path': 'post_script2.sh'},
+                        'comment': 'Test comment 2'
+                    }
                 ]
                 # Load ScriptingData from a YAML file with the mock schema
                 scripting_data = ScriptingData.load_from_yaml('dummy_file.yaml', mock_schema)
@@ -122,10 +169,30 @@ class TestMatchingFunctionality:
     @pytest.fixture
     def scripting_data_with_elements(self):
         return ScriptingData(elements=[
-            ScriptingElement(scenarios=['test_scenario1'], platforms=['platform1'], comment='Match 1'),
-            ScriptingElement(scenarios=['test_scenario2'], platforms=['platform2'], comment='Match 2'),
-            ScriptingElement(scenarios=['.*'], platforms=['platform3'], comment='Wildcard scenario'),
-            ScriptingElement(scenarios=['test_scenario3'], platforms=['.*'], comment='Wildcard platform'),
+            ScriptingElement(
+                scenarios=['test_scenario1'],
+                platforms=['platform1'],
+                pre_script=Script(path='pre_script1.sh'),
+                comment='Match 1'
+            ),
+            ScriptingElement(
+                scenarios=['test_scenario2'],
+                platforms=['platform2'],
+                pre_script=Script(path='pre_script2.sh'),
+                comment='Match 2'
+            ),
+            ScriptingElement(
+                scenarios=['.*'],
+                platforms=['platform3'],
+                pre_script=Script(path='pre_script3.sh'),
+                comment='Wildcard scenario'
+            ),
+            ScriptingElement(
+                scenarios=['test_scenario3'],
+                platforms=['.*'],
+                pre_script=Script(path='pre_script4.sh'),
+                comment='Wildcard platform'
+            ),
         ])
 
     def test_find_matching_scripting_exact_match(self, scripting_data_with_elements):
@@ -177,10 +244,31 @@ def mock_scripting_data():
     ]
     return ScriptingData(elements=elements)
 
+
 # Fixture to mock the load_from_yaml method
+@pytest.fixture
+def mock_scripting_data():
+    elements = [
+        ScriptingElement(
+            scenarios=['test_scenario1'],
+            platforms=['platform1'],
+            pre_script=Script(path='pre_script1.sh'),
+            comment='Match 1'
+        ),
+        ScriptingElement(
+            scenarios=['test_scenario2'],
+            platforms=['platform2'],
+            pre_script=Script(path='pre_script2.sh'),
+            comment='Match 2'
+        )
+    ]
+    return ScriptingData(elements=elements)
+
+# Define the mock_load_from_yaml fixture
 @pytest.fixture
 def mock_load_from_yaml():
     with patch('twisterlib.scripting.ScriptingData.load_from_yaml') as mock_method:
+        # Set the return_value of the mocked load_from_yaml method
         mock_method.return_value = ScriptingData([
             ScriptingElement(scenarios=['scenario1'], platforms=['platform1'], comment='Test comment 1'),
             ScriptingElement(scenarios=['scenario2'], platforms=['platform2'], comment='Test comment 2')
@@ -191,8 +279,10 @@ def test_scripting_initialization(mock_load_from_yaml):
     # Initialize Scripting with a list of dummy file paths
     scripting = Scripting(scripting_files=['dummy_path1.yaml'], scripting_schema={})
     # Check if the scripting data was loaded correctly
+    # The mock_load_from_yaml fixture should have been used to mock the load_from_yaml method
     assert len(scripting.scripting.elements) == 2
 
+# Test function for getting matched scripting elements
 def test_get_matched_scripting(mock_scripting_data):
     # Initialize Scripting without any scripting files
     scripting = Scripting(scripting_files=[], scripting_schema={})
@@ -208,16 +298,35 @@ def test_get_matched_scripting(mock_scripting_data):
     matched_element = scripting.get_matched_scripting('nonexistent_test', 'platform1')
     assert matched_element is None
 
-
 @pytest.fixture
 def scripting_data_instances():
     scripting_data1 = ScriptingData(elements=[
-        ScriptingElement(scenarios=['scenario1'], platforms=['platform1'], comment='Data1 Match 1'),
-        ScriptingElement(scenarios=['scenario2'], platforms=['platform2'], comment='Data1 Match 2')
+        ScriptingElement(
+            scenarios=['scenario1'],
+            platforms=['platform1'],
+            pre_script=Script(path='pre_script1.sh'),
+            comment='Data1 Match 1'
+        ),
+        ScriptingElement(
+            scenarios=['scenario2'],
+            platforms=['platform2'],
+            pre_script=Script(path='pre_script2.sh'),
+            comment='Data1 Match 2'
+        )
     ])
     scripting_data2 = ScriptingData(elements=[
-        ScriptingElement(scenarios=['scenario3'], platforms=['platform3'], comment='Data2 Match 1'),
-        ScriptingElement(scenarios=['scenario4'], platforms=['platform4'], comment='Data2 Match 2')
+        ScriptingElement(
+            scenarios=['scenario3'],
+            platforms=['platform3'],
+            pre_script=Script(path='pre_script3.sh'),
+            comment='Data2 Match 1'
+        ),
+        ScriptingElement(
+            scenarios=['scenario4'],
+            platforms=['platform4'],
+            pre_script=Script(path='pre_script4.sh'),
+            comment='Data2 Match 2'
+        )
     ])
     return scripting_data1, scripting_data2
 
