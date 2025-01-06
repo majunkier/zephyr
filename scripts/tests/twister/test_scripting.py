@@ -2,7 +2,6 @@
 # Copyright (c) 2024 Intel Corporation
 #
 # SPDX-License-Identifier: Apache-2.0
-import re
 from unittest.mock import mock_open, patch
 
 import pytest
@@ -44,9 +43,6 @@ class TestScriptingElement:
         assert element.post_flash_script.override_script is False
         assert element.post_script.timeout is None
         assert element.post_script.override_script is False
-        # Check if regex patterns are compiled correctly
-        assert len(element.re_scenarios) == 2
-        assert len(element.re_platforms) == 2
 
     def test_initialization_with_no_properties(self):
         # Test initialization with no properties set, which should trigger an error
@@ -199,14 +195,14 @@ class TestMatchingFunctionality:
                     comment='Match 2',
                 ),
                 ScriptingElement(
-                    scenarios=['.*'],
+                    scenarios=[''],
                     platforms=['platform3'],
                     pre_script=Script(path='pre_script3.sh'),
                     comment='Wildcard scenario',
                 ),
                 ScriptingElement(
                     scenarios=['test_scenario3'],
-                    platforms=['.*'],
+                    platforms=[''],
                     pre_script=Script(path='pre_script4.sh'),
                     comment='Wildcard platform',
                 ),
@@ -215,12 +211,14 @@ class TestMatchingFunctionality:
 
     def test_find_matching_scripting_exact_match(self, scripting_data_with_elements):
         # Test finding a matching scripting element
-        # for a given scenario and platform that should match
+        # for a given scenario and platform that should match exactly
         matched_element = scripting_data_with_elements.find_matching_scripting(
             'test_scenario1', 'platform1'
         )
-        assert matched_element is not None
-        assert matched_element.comment == 'Match 1'
+        assert matched_element is not None, "Expected a matching scripting element but found None."
+        assert (
+            matched_element.comment == 'Match 1'
+        ), f"Expected comment 'Match 1', but got '{matched_element.comment}'."
 
     def test_find_matching_scripting_no_match(self, scripting_data_with_elements):
         # Test finding a matching scripting element
@@ -251,14 +249,14 @@ class TestMatchingFunctionality:
 @pytest.mark.parametrize(
     "element,patterns,expected",
     [
-        ("test_scenario1", [re.compile("test_scenario1")], True),
-        ("test_scenario1", [re.compile("test_scenario2")], False),
-        ("test_scenario1", [re.compile(".*scenario1")], True),
-        ("test_scenario1", [re.compile("test_.*")], True),
-        ("test_scenario1", [re.compile("scenario1$")], False),
-        ("test_scenario1", [re.compile("^scenario")], False),
-        ("test_scenario1", [re.compile("^test_scenario1$")], True),
-        ("test_scenario1", [re.compile("^test_scenario"), re.compile("scenario1$")], True),
+        ("test_scenario1", [("test_scenario1")], True),
+        ("test_scenario1", [("test_scenario2")], False),
+        ("test_scenario1", [("scenario1")], True),
+        ("test_scenario1", [("test_")], True),
+        ("test_scenario1", [("scenario1$")], False),
+        ("test_scenario1", [("^scenario")], False),
+        ("test_scenario1", [("test_scenario1")], True),
+        ("test_scenario1", ["test_scenario", "scenario1"], True),
         ("test_scenario1", [], False),  # No patterns to match
     ],
 )

@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import logging
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -55,13 +54,9 @@ class ScriptingElement:
     post_flash_script: Script | None = None
     post_script: Script | None = None
     comment: str = 'NA'
-    re_scenarios: list[re.Pattern] = field(init=False, default_factory=list)
-    re_platforms: list[re.Pattern] = field(init=False, default_factory=list)
 
-    # Compiles regex patterns for scenarios and platforms, and validates the element.
+    # Ensures all required scripts are present and validates the element.
     def __post_init__(self):
-        self.re_scenarios = [re.compile(pat) for pat in self.scenarios]
-        self.re_platforms = [re.compile(pat) for pat in self.platforms]
         if not any([self.pre_script, self.post_flash_script, self.post_script]):
             logger.error("At least one of the scripts must be specified")
             sys.exit(1)
@@ -74,7 +69,6 @@ class ScriptingElement:
         if isinstance(script, dict):
             return Script(**script)
         return script
-
 
 @dataclass
 # Holds a collection of scripting elements.
@@ -113,11 +107,9 @@ class ScriptingData:
         matched_elements = []
 
         for element in self.elements:
-            if not isinstance(element, ScriptingElement):
-                element = ScriptingElement(**element)
-            if element.scenarios and not _matches_element(scenario, element.re_scenarios):
+            if element.scenarios and not _matches_element(scenario, element.scenarios):
                 continue
-            if element.platforms and not _matches_element(platform, element.re_platforms):
+            if element.platforms and not _matches_element(platform, element.platforms):
                 continue
             matched_elements.append(element)
 
@@ -143,6 +135,6 @@ class ScriptingData:
         return None
 
 
-# Checks if the given element matches any of the provided regex patterns.
-def _matches_element(element: str, patterns: list[re.Pattern]) -> bool:
-    return any(pattern.match(element) for pattern in patterns)
+# Checks if the given element matches any of the provided patterns.
+def _matches_element(element: str, patterns: list[str]) -> bool:
+    return any(pattern in element for pattern in patterns)

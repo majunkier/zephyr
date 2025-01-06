@@ -286,9 +286,10 @@ class TestPlan:
                 )
 
             if not was_script_matched:
-                logger.info(
+                logger.error(
                     "Scripting list was provided, none of the specified conditions were met"
                 )
+                sys.exit(1)
 
         if self.options.subset:
             s =  self.options.subset
