@@ -1282,17 +1282,11 @@ class TestPlan:
 
     def handle_new(self, testsuite: TestInstance) -> bool:
         logger.info("\n")
-
         logger.info(f"Checking TestSuite ID: {testsuite.testsuite.id}")
         logger.info(f"Platform: {testsuite.platform.name}")
         logger.info("\n")
         logger.info("\n")
-
-        # self.scripting.validate_and_deduplicate()
-
-        # self.scripting.print_scripting_elements()
         script_path = self.scripting.get_selected_script_path(testsuite.testsuite.id, testsuite.platform.name)
-        logger.info("script_path\n")
         logger.info(f"script_path: {script_path}")
 
         return False
@@ -1301,7 +1295,6 @@ class TestPlan:
         self, platform_name: str, testsuite: TestInstance
     ) -> bool:
 
-        return False
         matched_scripting = self.scripting.get_matched_scripting(
             testsuite.testsuite.id, platform_name
         )

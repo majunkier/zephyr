@@ -29,61 +29,71 @@ class Scripting:
         self.print_scripting_elements()
 
 
-    def validate_and_deduplicate(self):
-        """
-        Validate and deduplicate the scripting elements.
-        Rules:
-        - For each (scenario, platform) key:
-            - If one element → use it
-            - If multiple:
-                - If exactly one has override_script=True → use it
-                - If none or more than one have override=True → error
-        - At the end, include each element only once, even if it matched multiple keys.
-        """
-        key_to_elements = {}
+    # def validate_and_deduplicate(self):
+    #     """
+    #     Validate and deduplicate the scripting elements.
+    #     Rules:
+    #     - For each (scenario, platform) key:
+    #         - If one element → use it
+    #         - If multiple:
+    #             - If exactly one has override_script=True → use it
+    #             - If none or more than one have override=True → error
+    #     - At the end, include each element only once, even if it matched multiple keys.
+    #     """
+    #     key_to_elements = {}
 
-        # Group elements by (scenario, platform) pairs
+    #     # Group elements by (scenario, platform) pairs
+    #     for elem in self.scripting.elements:
+    #         for scenario in elem.scenarios:
+    #             for platform in elem.platforms:
+    #                 key = (scenario, platform)
+    #                 key_to_elements.setdefault(key, []).append(elem)
+
+    #     selected_elements = set()  # store unique selected elements
+
+    #     for key, elements in key_to_elements.items():
+    #         logger.info(f"Processing {key}: {len(elements)} elements found")
+
+    #         unique_elements = list(set(elements))  # de-duplicate same element appearing multiple times
+
+    #         if len(unique_elements) == 1:
+    #             selected_elements.add(unique_elements[0])
+    #         else:
+    #             override_elements = [e for e in unique_elements if self.has_override_script(e)]
+    #             if len(override_elements) == 1:
+    #                 selected_elements.add(override_elements[0])
+    #                 self.update_element_with_preference(key, override_elements[0])
+    #             elif len(override_elements) > 1:
+    #                 logger.error(f"Error: More than one override script for {key}")
+    #                 sys.exit(1)
+    #             else:
+    #                 logger.error(f"Error: No override script for {key}")
+    #                 sys.exit(1)
+
+    #     final_list = list(selected_elements)
+    #     logger.info(f"Updating scripting elements with {len(final_list)} valid elements")
+    #     self.scripting.elements = final_list
+
+
+    def get_selected_script_path(self, scenario: str, platform: str, script_type: str = "pre_script") -> str | None:
+        def matches_scenario(defined_scenario: str, input_scenario: str) -> bool:
+            if defined_scenario.endswith(".*"):
+                base = defined_scenario[:-2]
+                return input_scenario == base or input_scenario.startswith(base + ".")
+            return defined_scenario == input_scenario
+
+        def get_script(elem):
+            return getattr(elem, script_type, None)
+
+        matching_elements = []
         for elem in self.scripting.elements:
-            for scenario in elem.scenarios:
-                for platform in elem.platforms:
-                    key = (scenario, platform)
-                    key_to_elements.setdefault(key, []).append(elem)
+            if platform not in elem.platforms:
+                continue
 
-        selected_elements = set()  # store unique selected elements
-
-        for key, elements in key_to_elements.items():
-            logger.info(f"Processing {key}: {len(elements)} elements found")
-
-            unique_elements = list(set(elements))  # de-duplicate same element appearing multiple times
-
-            if len(unique_elements) == 1:
-                selected_elements.add(unique_elements[0])
-            else:
-                override_elements = [e for e in unique_elements if self.has_override_script(e)]
-                if len(override_elements) == 1:
-                    selected_elements.add(override_elements[0])
-                    self.update_element_with_preference(key, override_elements[0])
-                elif len(override_elements) > 1:
-                    logger.error(f"Error: More than one override script for {key}")
-                    sys.exit(1)
-                else:
-                    logger.error(f"Error: No override script for {key}")
-                    sys.exit(1)
-
-        final_list = list(selected_elements)
-        logger.info(f"Updating scripting elements with {len(final_list)} valid elements")
-        self.scripting.elements = final_list
-
-
-    def get_selected_script_path(self, scenario: str, platform: str) -> str | None:
-        """
-        Given a scenario and platform, return the path of the selected script
-        based on the override logic.
-        """
-        matching_elements = [
-            elem for elem in self.scripting.elements
-            if scenario in elem.scenarios and platform in elem.platforms
-        ]
+            for defined_scenario in elem.scenarios:
+                if matches_scenario(defined_scenario, scenario):
+                    matching_elements.append(elem)
+                    break  # Avoid duplicates if multiple scenarios match
 
         key = (scenario, platform)
         logger.info(f"Matching scripting elements for {key}: {len(matching_elements)} found")
@@ -92,25 +102,31 @@ class Scripting:
             logger.warning(f"No scripting elements found for {key}")
             return None
 
-        if len(matching_elements) > 1:
-            override_elements = [
-                elem for elem in matching_elements
-                if elem.pre_script and elem.pre_script.override_script
-            ]
-            if len(override_elements) > 1:
-                logger.error(f"More than one override script for {key}")
-                return None
-            elif len(override_elements) == 1:
-                selected_elem = override_elements[0]
-            else:
-                logger.warning(f"No override script found for {key}, selecting first")
-                selected_elem = matching_elements[0]
+        # Check for override script definitions and group by script_type
+        override_elements = [
+            elem for elem in matching_elements
+            if get_script(elem) and get_script(elem).override_script
+        ]
+
+        if len(override_elements) > 1:
+            logger.error(f"Multiple override {script_type} definitions found for {key}")
+            # Log each element involved for debugging
+            for elem in override_elements:
+                logger.error(f"Override found in: {elem}")
+            return None
+        elif override_elements:
+            selected_elem = override_elements[0]
         else:
             selected_elem = matching_elements[0]
+            logger.warning(f"No override {script_type} for {key}, selecting first available")
 
-        logger.info(f"Selected script for {key}: {selected_elem}")
-        return selected_elem.pre_script.path if selected_elem.pre_script else None
+        script = get_script(selected_elem)
+        if not script:
+            logger.warning(f"No {script_type} defined in selected element for {key}")
+            return None
 
+        logger.info(f"Selected {script_type} for {key}: {script.path}")
+        return script.path
 
 
 
@@ -170,21 +186,18 @@ class Scripting:
 class Script:
     path: str | None = None
     timeout: int | None = None
-    override_script: bool = False
 
     def __eq__(self, other):
         if isinstance(other, Script):
             return (self.path == other.path and
-                    self.timeout == other.timeout and
-                    self.override_script == other.override_script)
+                    self.timeout == other.timeout)
         return False
 
     def __hash__(self):
-        # Use immutable attributes (e.g., path, timeout, override_script) to create a hash
-        return hash((self.path, self.timeout, self.override_script))
+        return hash((self.path, self.timeout))
 
     def __repr__(self):
-        return f"Script(path={self.path}, timeout={self.timeout}, override_script={self.override_script})"
+        return f"Script(path={self.path}, timeout={self.timeout})"
 
 
 @dataclass
@@ -192,6 +205,7 @@ class Script:
 class ScriptingElement:
     scenarios: list[str] = field(default_factory=list)
     platforms: list[str] = field(default_factory=list)
+    override_script: bool = False
     pre_script: Script | None = None
     post_flash_script: Script | None = None
     post_script: Script | None = None
@@ -210,6 +224,7 @@ class ScriptingElement:
         # Check equality based on the attributes that uniquely identify the element
         return (self.scenarios == other.scenarios and
                 self.platforms == other.platforms and
+                self.override_script == other.override_script and
                 self.pre_script == other.pre_script and
                 self.post_flash_script == other.post_flash_script and
                 self.post_script == other.post_script and
@@ -220,6 +235,7 @@ class ScriptingElement:
         return hash((
             tuple(self.scenarios),
             tuple(self.platforms),
+            self.override_script,
             self.pre_script,
             self.post_flash_script,
             self.post_script,
@@ -227,7 +243,7 @@ class ScriptingElement:
         ))
 
     def __repr__(self):
-        return f"ScriptingElement(scenarios={self.scenarios}, platforms={self.platforms}, comment={self.comment})"
+        return f"ScriptingElement(scenarios={self.scenarios}, platforms={self.platforms}, override_script={self.override_script}, comment={self.comment})"
 
     # Converts a dictionary to a Script instance if necessary.
     def _convert_to_script(self, script: dict | Script | None) -> Script | None:
@@ -308,77 +324,3 @@ def get_override_scripts(elements):
     ]
 
 
-
-# from typing import List, Dict
-
-# def get_script_details(elements: List[ScriptingElement]) -> List[Dict[str, str]]:
-#     script_details = []
-
-#     for element in elements:
-#         # Loop through scenarios and platforms for each element
-#         for scenario in element.scenarios:
-#             for platform in element.platforms:
-#                 # Pre script
-#                 if element.pre_script:
-#                     script_details.append({
-#                         'scenario': scenario,
-#                         'platform': platform,
-#                         'override_script': element.pre_script.override_script,
-#                         'path': element.pre_script.path
-#                     })
-#                 # Post script
-#                 if element.post_script:
-#                     script_details.append({
-#                         'scenario': scenario,
-#                         'platform': platform,
-#                         'override_script': element.post_script.override_script,
-#                         'path': element.post_script.path
-#                     })
-#                 # Post flash script
-#                 if element.post_flash_script:
-#                     script_details.append({
-#                         'scenario': scenario,
-#                         'platform': platform,
-#                         'override_script': element.post_flash_script.override_script,
-#                         'path': element.post_flash_script.path
-#                     })
-
-#     return script_details
-
-# class DuplicateScriptConfigurationError(Exception):
-#     pass
-
-# def check_duplicate_configs(elements: List[ScriptingElement]) -> List[Dict[str, str]]:
-#     config_dict = {}  # To track unique scenario-platform combinations
-#     duplicate_details = []
-
-#     for element in elements:
-#         # Loop through scenarios and platforms for each element
-#         for scenario in element.scenarios:
-#             for platform in element.platforms:
-#                 config_key = (scenario, platform)
-
-#                 # Check if this (scenario, platform) combination already exists
-#                 if config_key in config_dict:
-#                     # If it exists, check if override_script is set
-#                     existing_config = config_dict[config_key]
-#                     if (existing_config.get('override_script', False) and
-#                         element.pre_script and element.pre_script.override_script):
-#                         # If both are overriding scripts, raise error
-#                         raise DuplicateScriptConfigurationError(
-#                             f"Duplicate configuration for scenario: {scenario}, platform: {platform} with override scripts"
-#                         )
-#                 else:
-#                     # First time seeing this configuration, add it to the dictionary
-#                     config_dict[config_key] = {
-#                         'scenario': scenario,
-#                         'platform': platform,
-#                         'override_script': (element.pre_script and element.pre_script.override_script),
-#                         'path': element.pre_script.path if element.pre_script else None
-#                     }
-
-#                 # Add details about the configuration
-#                 duplicate_details.append(config_dict[config_key])
-
-#     # Return duplicate details if found
-#     return duplicate_details

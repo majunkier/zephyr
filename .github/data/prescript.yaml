@@ -5,13 +5,21 @@
   platforms:
   - qemu_x86/atom
   - intel_adsp/cavs25
+
   pre_script:
-    path: script1.sh
+    path: pre_script.sh
     override_script: false
+  post_script:
+    path: post_script.sh
+    override_script: true
+  post_flash_script:
+    path: post_flash_script.sh
+    override_script: true
+
   comment: "First script"
 
 - scenarios:
-  - kernel.semaphore
+  - kernel.*
   platforms:
   - qemu_x86/atom
   pre_script:

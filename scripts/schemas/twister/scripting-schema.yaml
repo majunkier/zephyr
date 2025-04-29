@@ -17,6 +17,10 @@ sequence:
         sequence:
           - type: str
           - unique: true
+      "override_script":
+        type: bool
+        default: false
+        required: false
       "pre_script":
         type: map
         required: false
@@ -27,10 +31,6 @@ sequence:
           "timeout":
             type: int
             default: 30
-            required: false
-          "override_script":
-            type: bool
-            default: false
             required: false
       "post_flash_script":
         type: map
@@ -43,10 +43,6 @@ sequence:
             type: int
             default: 30
             required: false
-          "override_script":
-            type: bool
-            default: false
-            required: false
       "post_script":
         type: map
         required: false
@@ -57,10 +53,6 @@ sequence:
           "timeout":
             type: int
             default: 30
-            required: false
-          "override_script":
-            type: bool
-            default: false
             required: false
       "comment":
         type: str
