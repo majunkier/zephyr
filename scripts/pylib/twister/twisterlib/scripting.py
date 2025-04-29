@@ -105,48 +105,45 @@ class ScriptingData:
         self.elements.extend(other.elements)
 
     # Finds a scripting element that matches the given scenario and platform.
-    def find_matching_scripting(self, scenario: str, platform: str) -> ScriptingElement | None:
+    def find_matching_scripting(self, scenario: str, platform: str) -> 'ScriptingElement | None':
         matched_elements = []
 
         for element in self.elements:
-            if element.scenarios and not _matches_element(scenario, element.scenarios):
-                continue
-            if element.platforms and not _matches_element(platform, element.platforms):
-                continue
-            matched_elements.append(element)
+            scenario_match = _matches_element(scenario, element.scenarios) if element.scenarios else True
+            platform_match = _matches_element(platform, element.platforms) if element.platforms else True
 
-        if not matched_elements:
-            return None
+            logger.debug(f"Checking element: {element}")
+            logger.debug(f"  Scenario match: {scenario_match} ({scenario} vs {element.scenarios})")
+            logger.debug(f"  Platform match: {platform_match} ({platform} vs {element.platforms})")
 
-        # Separate exact matches from wildcard matches
-        exact_matches = [
-            elem for elem in matched_elements
-            if scenario in elem.scenarios and platform in elem.platforms
-        ]
-        # filter out scripting elements that have any script marked with override_script: true
-        # Among exact matches or all matches, prioritize override_script
-        def get_override_scripts(elements: list[ScriptingElement]) -> list[ScriptingElement]:
-            return [
-                elem for elem in elements if (
-                    (elem.pre_script and elem.pre_script.override_script)
-                    or (elem.post_flash_script and elem.post_flash_script.override_script)
-                    or (elem.post_script and elem.post_script.override_script)
-                )
-            ]
+            if scenario_match and platform_match:
+                matched_elements.append(element)
 
-        candidates = exact_matches if exact_matches else matched_elements
-        override_scripts = get_override_scripts(candidates)
+        override_scripts = get_override_scripts(matched_elements)
 
         if len(override_scripts) > 1:
-            logger.error("Multiple override script definitions found for scenario/platform match")
+            logger.error("Multiple override script definitions found for matching scenario/platform")
             sys.exit(1)
         elif len(override_scripts) == 1:
+            logger.debug("Found override script match.")
             return override_scripts[0]
+        elif matched_elements:
+            logger.debug("Found regular match (no override).")
+            return matched_elements[0]
 
-        # No override_script — return the most specific (exact) match if possible
-        return candidates[0]
+        logger.debug("No matching scripting element found.")
+        return None
 
 
 # Checks if the given element matches any of the provided patterns.
 def _matches_element(element: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(element, pattern) for pattern in patterns)
+
+def get_override_scripts(elements):
+    return [
+        elem for elem in elements if (
+            (elem.pre_script and elem.pre_script.override_script) or
+            (elem.post_flash_script and elem.post_flash_script.override_script) or
+            (elem.post_script and elem.post_script.override_script)
+        )
+    ]
