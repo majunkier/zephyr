@@ -29,71 +29,21 @@ class Scripting:
         self.print_scripting_elements()
 
 
-    # def validate_and_deduplicate(self):
-    #     """
-    #     Validate and deduplicate the scripting elements.
-    #     Rules:
-    #     - For each (scenario, platform) key:
-    #         - If one element → use it
-    #         - If multiple:
-    #             - If exactly one has override_script=True → use it
-    #             - If none or more than one have override=True → error
-    #     - At the end, include each element only once, even if it matched multiple keys.
-    #     """
-    #     key_to_elements = {}
-
-    #     # Group elements by (scenario, platform) pairs
-    #     for elem in self.scripting.elements:
-    #         for scenario in elem.scenarios:
-    #             for platform in elem.platforms:
-    #                 key = (scenario, platform)
-    #                 key_to_elements.setdefault(key, []).append(elem)
-
-    #     selected_elements = set()  # store unique selected elements
-
-    #     for key, elements in key_to_elements.items():
-    #         logger.info(f"Processing {key}: {len(elements)} elements found")
-
-    #         unique_elements = list(set(elements))  # de-duplicate same element appearing multiple times
-
-    #         if len(unique_elements) == 1:
-    #             selected_elements.add(unique_elements[0])
-    #         else:
-    #             override_elements = [e for e in unique_elements if self.has_override_script(e)]
-    #             if len(override_elements) == 1:
-    #                 selected_elements.add(override_elements[0])
-    #                 self.update_element_with_preference(key, override_elements[0])
-    #             elif len(override_elements) > 1:
-    #                 logger.error(f"Error: More than one override script for {key}")
-    #                 sys.exit(1)
-    #             else:
-    #                 logger.error(f"Error: No override script for {key}")
-    #                 sys.exit(1)
-
-    #     final_list = list(selected_elements)
-    #     logger.info(f"Updating scripting elements with {len(final_list)} valid elements")
-    #     self.scripting.elements = final_list
-
-
-    def get_selected_script_path(self, scenario: str, platform: str, script_type: str = "pre_script") -> str | None:
+    def get_selected_scripts(self, scenario: str, platform: str) -> dict[str, str] | None:
         def matches_scenario(defined_scenario: str, input_scenario: str) -> bool:
             if defined_scenario.endswith(".*"):
                 base = defined_scenario[:-2]
                 return input_scenario == base or input_scenario.startswith(base + ".")
             return defined_scenario == input_scenario
 
-        def get_script(elem):
-            return getattr(elem, script_type, None)
-
         matching_elements = []
         for elem in self.scripting.elements:
             if platform not in elem.platforms:
                 continue
-
             for defined_scenario in elem.scenarios:
                 if matches_scenario(defined_scenario, scenario):
                     matching_elements.append(elem)
-                    break  # Avoid duplicates if multiple scenarios match
+                    break
 
         key = (scenario, platform)
         logger.info(f"Matching scripting elements for {key}: {len(matching_elements)} found")
@@ -102,45 +52,28 @@ class Scripting:
             logger.warning(f"No scripting elements found for {key}")
             return None
 
-        # Check for override script definitions and group by script_type
-        override_elements = [
-            elem for elem in matching_elements
-            if get_script(elem) and get_script(elem).override_script
-        ]
-
+        # Check for global override conflict
+        override_elements = [e for e in matching_elements if e.override_script]
         if len(override_elements) > 1:
-            logger.error(f"Multiple override {script_type} definitions found for {key}")
-            # Log each element involved for debugging
+            logger.error(f"Multiple override_script definitions found for {key}")
             for elem in override_elements:
                 logger.error(f"Override found in: {elem}")
-            return None
-        elif override_elements:
-            selected_elem = override_elements[0]
-        else:
-            selected_elem = matching_elements[0]
-            logger.warning(f"No override {script_type} for {key}, selecting first available")
-
-        script = get_script(selected_elem)
-        if not script:
-            logger.warning(f"No {script_type} defined in selected element for {key}")
+                sys.exit(1)
             return None
 
-        logger.info(f"Selected {script_type} for {key}: {script.path}")
-        return script.path
+        selected_elem = override_elements[0] if override_elements else matching_elements[0]
+        result = {}
+        for script_type in ["pre_script", "post_script", "post_flash_script"]:
+            script = getattr(selected_elem, script_type, None)
+            if script and getattr(script, "path", None):
+                logger.info(f"Selected {script_type} for {key}: {script.path}")
+                result[script_type] = script.path
+            else:
+                logger.info(f"No {script_type} defined for {key}")
+
+        return result if result else None
 
 
-
-    def has_override_script(self, elem: ScriptingElement) -> bool:
-        """Check if any of the scripts in the element have `override_script=True`"""
-        return (
-            (elem.pre_script and elem.pre_script.override_script) or
-            (elem.post_flash_script and elem.post_flash_script.override_script) or
-            (elem.post_script and elem.post_script.override_script)
-        )
-
-    def update_element_with_preference(self, key: tuple[str, str], selected_elem: ScriptingElement) -> None:
-        """Log and update the element selection (can add more complex logic here)"""
-        logger.info(f"Selected script for {key}: {selected_elem}")
 
 
 
@@ -161,22 +94,22 @@ class Scripting:
                 ScriptingData.load_from_yaml(scripting_file, self.scripting_schema)
             )
 
-    def print_scripting_elements(self):
-        if not self.scripting.elements:
-            logger.info("No scripting elements loaded.")
-            return
+    # def print_scripting_elements(self):
+    #     if not self.scripting.elements:
+    #         logger.info("No scripting elements loaded.")
+    #         return
 
-        for i, elem in enumerate(self.scripting.elements, 1):
-            logger.info(f"Scripting Element #{i}")
-            logger.info(f"  Scenarios: {elem.scenarios}")
-            logger.info(f"  Platforms: {elem.platforms}")
-            if elem.pre_script:
-                logger.info(f"  Pre-script: {elem.pre_script.path} (override: {elem.pre_script.override_script})")
-            if elem.post_flash_script:
-                logger.info(f"  Post-flash-script: {elem.post_flash_script.path} (override: {elem.post_flash_script.override_script})")
-            if elem.post_script:
-                logger.info(f"  Post-script: {elem.post_script.path} (override: {elem.post_script.override_script})")
-            logger.info(f"  Comment: {elem.comment}")
+    #     for i, elem in enumerate(self.scripting.elements, 1):
+    #         logger.info(f"Scripting Element #{i}")
+    #         logger.info(f"  Scenarios: {elem.scenarios}")
+    #         logger.info(f"  Platforms: {elem.platforms}")
+    #         if elem.pre_script:
+    #             logger.info(f"  Pre-script: {elem.pre_script.path} (override: {elem.pre_script.override_script})")
+    #         if elem.post_flash_script:
+    #             logger.info(f"  Post-flash-script: {elem.post_flash_script.path} (override: {elem.post_flash_script.override_script})")
+    #         if elem.post_script:
+    #             logger.info(f"  Post-script: {elem.post_script.path} (override: {elem.post_script.override_script})")
+    #         logger.info(f"  Comment: {elem.comment}")
 
 
 

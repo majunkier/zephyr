@@ -1,30 +1,25 @@
 - scenarios:
   - kernel.semaphore
   - kernel.threads.thread_stack
-
   platforms:
   - qemu_x86/atom
   - intel_adsp/cavs25
-
+  override_script: false
   pre_script:
     path: pre_script.sh
-    override_script: false
   post_script:
     path: post_script.sh
-    override_script: true
   post_flash_script:
     path: post_flash_script.sh
-    override_script: true
-
   comment: "First script"
 
 - scenarios:
   - kernel.*
   platforms:
   - qemu_x86/atom
+  override_script: true
   pre_script:
     path: script2.sh
-    override_script: true
   comment: "Second script"
 
 # - scenarios:

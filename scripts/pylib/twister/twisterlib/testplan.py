@@ -1286,7 +1286,7 @@ class TestPlan:
         logger.info(f"Platform: {testsuite.platform.name}")
         logger.info("\n")
         logger.info("\n")
-        script_path = self.scripting.get_selected_script_path(testsuite.testsuite.id, testsuite.platform.name)
+        script_path = self.scripting.get_selected_scripts(testsuite.testsuite.id, testsuite.platform.name)
         logger.info(f"script_path: {script_path}")
 
         return False
@@ -1294,7 +1294,7 @@ class TestPlan:
     def handle_additional_scripts(
         self, platform_name: str, testsuite: TestInstance
     ) -> bool:
-
+        return False
         matched_scripting = self.scripting.get_matched_scripting(
             testsuite.testsuite.id, platform_name
         )
