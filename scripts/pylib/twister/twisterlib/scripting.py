@@ -7,6 +7,7 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+import fnmatch
 
 import scl
 
@@ -114,28 +115,38 @@ class ScriptingData:
                 continue
             matched_elements.append(element)
 
-        # Check for override_script
-        override_scripts = [
-            elem
-            for elem in matched_elements
-            if (
-                (elem.pre_script and elem.pre_script.override_script)
-                or (elem.post_flash_script and elem.post_flash_script.override_script)
-                or (elem.post_script and elem.post_script.override_script)
-            )
+        if not matched_elements:
+            return None
+
+        # Separate exact matches from wildcard matches
+        exact_matches = [
+            elem for elem in matched_elements
+            if scenario in elem.scenarios and platform in elem.platforms
         ]
+        # filter out scripting elements that have any script marked with override_script: true
+        # Among exact matches or all matches, prioritize override_script
+        def get_override_scripts(elements: list[ScriptingElement]) -> list[ScriptingElement]:
+            return [
+                elem for elem in elements if (
+                    (elem.pre_script and elem.pre_script.override_script)
+                    or (elem.post_flash_script and elem.post_flash_script.override_script)
+                    or (elem.post_script and elem.post_script.override_script)
+                )
+            ]
+
+        candidates = exact_matches if exact_matches else matched_elements
+        override_scripts = get_override_scripts(candidates)
 
         if len(override_scripts) > 1:
-            logger.error("Multiple override definition for scripts found")
+            logger.error("Multiple override script definitions found for scenario/platform match")
             sys.exit(1)
         elif len(override_scripts) == 1:
             return override_scripts[0]
-        elif matched_elements:
-            return matched_elements[0]
 
-        return None
+        # No override_script — return the most specific (exact) match if possible
+        return candidates[0]
 
 
 # Checks if the given element matches any of the provided patterns.
 def _matches_element(element: str, patterns: list[str]) -> bool:
-    return any(pattern == element for pattern in patterns)
+    return any(fnmatch.fnmatch(element, pattern) for pattern in patterns)
