@@ -21,28 +21,24 @@ class TestScriptingElement:
         element = ScriptingElement(
             scenarios=['scenario1', 'scenario2'],
             platforms=['platform1', 'platform2'],
-            pre_script=Script(path='pre_script.sh', timeout=10, override_script=True),
-            post_flash_script=Script(
-                path='post_flash_script.sh', timeout=20, override_script=False
-            ),
-            post_script=Script(path='post_script.sh'),  # No timeout or override_script specified
+            pre_script=Script(path='pre_script.sh', timeout=10),
+            post_flash_script=Script(path='post_flash_script.sh', timeout=20),
+            post_script=Script(path='post_script.sh'),  # No timeout specified
+            override_script=True,
             comment='Test comment',
         )
+
         # Check if the properties are set correctly
         assert element.scenarios == ['scenario1', 'scenario2']
         assert element.platforms == ['platform1', 'platform2']
-        assert element.pre_script.path == 'pre_script.sh'  # Compare the path attribute
-        assert (
-            element.post_flash_script.path == 'post_flash_script.sh'
-        )  # Compare the path attribute
-        assert element.post_script.path == 'post_script.sh'  # Compare the path attribute
+        assert element.pre_script.path == 'pre_script.sh'
+        assert element.post_flash_script.path == 'post_flash_script.sh'
+        assert element.post_script.path == 'post_script.sh'
         assert element.comment == 'Test comment'
+        assert element.override_script is True
         assert element.pre_script.timeout == 10
-        assert element.pre_script.override_script is True
         assert element.post_flash_script.timeout == 20
-        assert element.post_flash_script.override_script is False
         assert element.post_script.timeout is None
-        assert element.post_script.override_script is False
 
     def test_initialization_with_no_properties(self):
         # Test initialization with no properties set, which should trigger an error
@@ -210,15 +206,19 @@ class TestMatchingFunctionality:
         )
 
     def test_find_matching_scripting_exact_match(self, scripting_data_with_elements):
-        # Test finding a matching scripting element
-        # for a given scenario and platform that should match exactly
-        matched_element = scripting_data_with_elements.find_matching_scripting(
-            'test_scenario1', 'platform1'
-        )
-        assert matched_element is not None, "Expected a matching scripting element but found None."
-        assert (
-            matched_element.comment == 'Match 1'
-        ), f"Expected comment 'Match 1', but got '{matched_element.comment}'."
+        """
+        Test finding a matching scripting element for a given scenario and platform
+        where there is an exact match (not a wildcard).
+        """
+        scenario = 'test_scenario1'
+        platform = 'platform1'
+        matched_element = scripting_data_with_elements.find_matching_scripting(scenario, platform)
+
+        assert matched_element is not None, f"Expected a match for ({scenario}, {platform}) but got None."
+        assert matched_element.scenarios == ['test_scenario1'], "Matched element scenarios don't match expected."
+        assert platform in matched_element.platforms, f"Platform '{platform}' not found in matched element."
+        assert matched_element.comment == 'Match 1', f"Expected comment 'Match 1', but got '{matched_element.comment}'."
+
 
     def test_find_matching_scripting_no_match(self, scripting_data_with_elements):
         # Test finding a matching scripting element

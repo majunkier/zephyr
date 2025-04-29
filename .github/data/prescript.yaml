@@ -4,22 +4,22 @@
   platforms:
   - qemu_x86/atom
   - intel_adsp/cavs25
-  override_script: false
+  override_script: true
   pre_script:
-    path: pre_script.sh
+    path: /home/majunkier/zephyrproject/zephyr/.github/data/post_script.sh
   post_script:
-    path: post_script.sh
+    path: /home/majunkier/zephyrproject/zephyr/.github/data/post_script.sh
   post_flash_script:
-    path: post_flash_script.sh
+    path: /home/majunkier/zephyrproject/zephyr/.github/data/post_script.sh
   comment: "First script"
 
 - scenarios:
   - kernel.*
   platforms:
   - qemu_x86/atom
-  override_script: true
+  override_script: false
   pre_script:
-    path: script2.sh
+    path: /home/majunkier/zephyrproject/zephyr/.github/data/post_script.sh
   comment: "Second script"
 
 # - scenarios:

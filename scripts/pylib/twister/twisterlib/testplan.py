@@ -274,23 +274,11 @@ class TestPlan:
             self.apply_filters()
 
         if self.scripting:
-            logger.info(
-                    "TEST QEMU"
-                )
-            logger.info(
-                    "TEST QEMU"
-                )
-            logger.info(
-                    "TEST QEMU"
-                )
             # Check if at least one provided script met the conditions.
             # Summarize logs for all calls.
 
             was_script_matched = False
             for instance in self.instances.values():
-                logger.info(
-                    f"{instance} qemu powinno gdzies byc {instance.platform.name}."
-                )
                 self.handle_new(instance)
 
                 was_script_matched = (
@@ -1282,12 +1270,13 @@ class TestPlan:
 
     def handle_new(self, testsuite: TestInstance) -> bool:
         logger.info("\n")
-        logger.info(f"Checking TestSuite ID: {testsuite.testsuite.id}")
-        logger.info(f"Platform: {testsuite.platform.name}")
-        logger.info("\n")
-        logger.info("\n")
-        script_path = self.scripting.get_selected_scripts(testsuite.testsuite.id, testsuite.platform.name)
+        logger.info(
+                    f"{testsuite.testsuite.id} qemu powinno gdzies byc {testsuite.platform.name}."
+                )
+        script_path, selected_elem = self.scripting.get_selected_scripts(testsuite.testsuite.id, testsuite.platform.name)
         logger.info(f"script_path: {script_path}")
+        self.scripting.validate_script_paths(script_path)
+        logger.info("\n")
 
         return False
 
