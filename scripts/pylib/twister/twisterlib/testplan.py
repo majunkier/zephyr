@@ -274,10 +274,25 @@ class TestPlan:
             self.apply_filters()
 
         if self.scripting:
+            logger.info(
+                    "TEST QEMU"
+                )
+            logger.info(
+                    "TEST QEMU"
+                )
+            logger.info(
+                    "TEST QEMU"
+                )
             # Check if at least one provided script met the conditions.
             # Summarize logs for all calls.
+
             was_script_matched = False
             for instance in self.instances.values():
+                logger.info(
+                    f"{instance} qemu powinno gdzies byc {instance.platform.name}."
+                )
+                self.handle_new(instance)
+
                 was_script_matched = (
                     was_script_matched
                     or self.handle_additional_scripts(instance.platform.name, instance)
@@ -1265,13 +1280,32 @@ class TestPlan:
 
         self.link_dir_counter += 1
 
+    def handle_new(self, testsuite: TestInstance) -> bool:
+        logger.info("\n")
+
+        logger.info(f"Checking TestSuite ID: {testsuite.testsuite.id}")
+        logger.info(f"Platform: {testsuite.platform.name}")
+        logger.info("\n")
+        logger.info("\n")
+
+        # self.scripting.validate_and_deduplicate()
+
+        # self.scripting.print_scripting_elements()
+        script_path = self.scripting.get_selected_script_path(testsuite.testsuite.id, testsuite.platform.name)
+        logger.info("script_path\n")
+        logger.info(f"script_path: {script_path}")
+
+        return False
+
     def handle_additional_scripts(
         self, platform_name: str, testsuite: TestInstance
     ) -> bool:
-        logger.debug(testsuite.testsuite.id)
+
+        return False
         matched_scripting = self.scripting.get_matched_scripting(
             testsuite.testsuite.id, platform_name
         )
+
         if matched_scripting:
             # Define a function to validate
             # if the platform is supported by the matched scripting
@@ -1299,7 +1333,6 @@ class TestPlan:
                         script_obj = getattr(matched_scripting, script_type, None)
                         # If a script object is provided, check if the script path is a valid file
                         if script_obj and script_obj.path:
-                            logger.info(f"{script_type} xx {script_obj.path} MATI {platform_name}.")
                             # Check if there's an existing script and if override is not allowed
                             if not script_obj.override_script:
                                 logger.info(

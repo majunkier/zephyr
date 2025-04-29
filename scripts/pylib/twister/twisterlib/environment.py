@@ -964,9 +964,9 @@ def parse_arguments(
         )
         sys.exit(1)
 
-    if options.scripting_list and not options.device_testing:
-        logger.error("When --scripting_list is used --device-testing is required")
-        sys.exit(1)
+    # if options.scripting_list and not options.device_testing:
+    #     logger.error("When --scripting_list is used --device-testing is required")
+    #     sys.exit(1)
 
     if (
         options.device_testing

@@ -1,0 +1,55 @@
+- scenarios:
+  - kernel.semaphore
+  - kernel.threads.thread_stack
+
+  platforms:
+  - qemu_x86/atom
+  - intel_adsp/cavs25
+  pre_script:
+    path: script1.sh
+    override_script: false
+  comment: "First script"
+
+- scenarios:
+  - kernel.semaphore
+  platforms:
+  - qemu_x86/atom
+  pre_script:
+    path: script2.sh
+    override_script: true
+  comment: "Second script"
+
+# - scenarios:
+#   - kernel.semaphore
+#   platforms:
+#   - qemu_x86/atom
+#   pre_script:
+#     path: script3.sh
+#     override_script: true
+#   comment: "Third script"
+
+
+
+# - scenarios:
+#   - kernel.semaphore
+#   platforms:
+#   - up_squared/apollo_lake
+#   - intel_adsp/cavs25
+#   pre_script:
+#       path: main-intel/.github/data/prescript.sh
+#       override_script: true
+#   post_script:
+#     path: main-intel/.github/data/post_script.sh
+#     override_script: true
+#   comment: >
+#     takisobie
+
+# - scenarios:
+#   - kernel.threads.thread_stack
+#   platforms:
+#   - intel_adsp/cavs25
+#   pre_script:
+#       path: main-intel/.github/data/prescript1.sh
+#       override_script: true
+#   comment: >
+#     takisobie
