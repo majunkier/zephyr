@@ -7,8 +7,6 @@ import logging
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-import fnmatch
-from collections import defaultdict
 import os
 
 import scl
@@ -30,7 +28,7 @@ class Scripting:
         self.print_scripting_elements()
 
 
-    def get_selected_scripts(self, scenario: str, platform: str) -> tuple[Any, dict[str, Any]] | None:
+    def get_selected_scripts(self, scenario: str, platform: str) -> tuple[dict, ScriptingElement] | None:
         def matches_scenario(defined_scenario: str, input_scenario: str) -> bool:
             if defined_scenario.endswith(".*"):
                 base = defined_scenario[:-2]
@@ -51,7 +49,7 @@ class Scripting:
 
         if not matching_elements:
             logger.warning(f"No scripting elements found for {key}")
-            return None
+            return {}, None  # Return empty dict and None when no elements found
 
         override_elements = [e for e in matching_elements if e.override_script]
         if len(override_elements) > 1:
@@ -78,7 +76,6 @@ class Scripting:
             else:
                 logger.debug(f"No {script_type} defined for {key}")
 
-        # return selected_elem, result if result else None
         return result, selected_elem
 
 
@@ -91,39 +88,11 @@ class Scripting:
             else:
                 logger.debug(f"{script_type} file exists: {path}")
 
-
-    # # Finds and returns the scripting element that matches the given test name and platform.
-    # def get_matched_scripting(self, testname: str, platform: str) -> ScriptingElement | None:
-    #     matched_scripting = self.scripting.find_matching_scripting(testname, platform)
-    #     if matched_scripting:
-    #         logger.info(
-    #             f"'{testname}' on '{platform}' device handler scripts '{str(matched_scripting)}'"
-    #         )
-    #         return matched_scripting
-    #     return None
-
     def load_and_validate_files(self):
         for scripting_file in self.scripting_files:
             self.scripting.extend(
                 ScriptingData.load_from_yaml(scripting_file, self.scripting_schema)
             )
-
-    # def print_scripting_elements(self):
-    #     if not self.scripting.elements:
-    #         logger.info("No scripting elements loaded.")
-    #         return
-
-    #     for i, elem in enumerate(self.scripting.elements, 1):
-    #         logger.info(f"Scripting Element #{i}")
-    #         logger.info(f"  Scenarios: {elem.scenarios}")
-    #         logger.info(f"  Platforms: {elem.platforms}")
-    #         if elem.pre_script:
-    #             logger.info(f"  Pre-script: {elem.pre_script.path} (override: {elem.pre_script.override_script})")
-    #         if elem.post_flash_script:
-    #             logger.info(f"  Post-flash-script: {elem.post_flash_script.path} (override: {elem.post_flash_script.override_script})")
-    #         if elem.post_script:
-    #             logger.info(f"  Post-script: {elem.post_script.path} (override: {elem.post_script.override_script})")
-    #         logger.info(f"  Comment: {elem.comment}")
 
 
 @dataclass
@@ -227,44 +196,3 @@ class ScriptingData:
     # Extends the current scripting data with another set of scripting data.
     def extend(self, other: ScriptingData) -> None:
         self.elements.extend(other.elements)
-
-    # Finds a scripting element that matches the given scenario and platform.
-    # def find_matching_scripting(self, scenario: str, platform: str) -> 'ScriptingElement | None':
-    #     matched_elements = []
-
-    #     for element in self.elements:
-    #         scenario_match = _matches_element(scenario, element.scenarios) if element.scenarios else True
-    #         platform_match = _matches_element(platform, element.platforms) if element.platforms else True
-
-    #         if scenario_match and platform_match:
-    #             matched_elements.append(element)
-
-    #     override_scripts = get_override_scripts(matched_elements)
-
-    #     if len(override_scripts) > 1:
-    #         logger.error("Multiple override script definitions found for matching scenario/platform")
-    #         sys.exit(1)
-    #     elif len(override_scripts) == 1:
-    #         logger.debug("Found override script match.")
-    #         return override_scripts[0]
-    #     elif matched_elements:
-    #         logger.debug("Found regular match (no override).")
-    #         return matched_elements[0]
-
-    #     return None
-
-
-# Checks if the given element matches any of the provided patterns.
-# def _matches_element(element: str, patterns: list[str]) -> bool:
-#     return any(fnmatch.fnmatch(element, pattern) for pattern in patterns)
-
-# def get_override_scripts(elements):
-#     return [
-#         elem for elem in elements if (
-#             (elem.pre_script and elem.pre_script.override_script) or
-#             (elem.post_flash_script and elem.post_flash_script.override_script) or
-#             (elem.post_script and elem.post_script.override_script)
-#         )
-#     ]
-
-

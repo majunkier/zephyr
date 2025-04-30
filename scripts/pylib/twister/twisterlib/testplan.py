@@ -1275,15 +1275,19 @@ class TestPlan:
                 )
         script_path, selected_elem = self.scripting.get_selected_scripts(testsuite.testsuite.id, testsuite.platform.name)
         logger.info(f"script_path: {script_path}")
+        logger.info(f"selected_elem: {selected_elem}")
         self.scripting.validate_script_paths(script_path)
         logger.info("\n")
 
         return False
-
     def handle_additional_scripts(
         self, platform_name: str, testsuite: TestInstance
     ) -> bool:
         return False
+
+    def handle_additional_scripts1(
+        self, platform_name: str, testsuite: TestInstance
+    ) -> bool:
         matched_scripting = self.scripting.get_matched_scripting(
             testsuite.testsuite.id, platform_name
         )
@@ -1305,8 +1309,7 @@ class TestPlan:
             # if they match the platform and are supported
             log_messages = set()
             for dut in self.env.hwm.duts:
-                # Check if the platform matches and if the platform
-                # is supported by the matched scripting
+
                 if dut.platform in platform_name and validate_boards(
                     platform_name, matched_scripting.platforms
                 ):
@@ -1315,34 +1318,23 @@ class TestPlan:
                         script_obj = getattr(matched_scripting, script_type, None)
                         # If a script object is provided, check if the script path is a valid file
                         if script_obj and script_obj.path:
-                            # Check if there's an existing script and if override is not allowed
-                            if not script_obj.override_script:
-                                logger.info(
-                                    f"{script_type} will not be overridden on {platform_name}."
+                            setattr(dut, script_type, script_obj.path)
+                            # Check if the script timeout is provided and set it on the DUT
+                            if script_obj.timeout is not None:
+                                setattr(dut, script_timeout, script_obj.timeout)
+                                log_messages.add(
+                                    f"{script_type} {script_obj.path} will be executed on "
+                                    f"{platform_name} with timeout {script_obj.timeout}"
                                 )
-                                continue
-                            # Check if the script path is a valid file and set it on the DUT
-                            if Path(script_obj.path).is_file():
-                                setattr(dut, script_type, script_obj.path)
-                                # Check if the script timeout is provided and set it on the DUT
-                                if script_obj.timeout is not None:
-                                    setattr(dut, script_timeout, script_obj.timeout)
-                                    log_messages.add(
-                                        f"{script_type} {script_obj.path} will be executed on "
-                                        f"{platform_name} with timeout {script_obj.timeout}"
-                                    )
-                                else:
-                                    log_messages.add(
-                                        f"{script_type} {script_obj.path} will be executed on "
-                                        f"{platform_name} with no timeout specified"
-                                    )
                             else:
-                                raise TwisterRuntimeError(
-                                    f"{script_type} script not found under path: {script_obj.path}"
+                                log_messages.add(
+                                    f"{script_type} {script_obj.path} will be executed on "
+                                    f"{platform_name} with no timeout specified"
                                 )
+
             for msg in log_messages:
                 logger.info(msg)
-            logger.info("debug flag")
+
             return True
         return False
 

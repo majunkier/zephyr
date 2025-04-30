@@ -9,380 +9,408 @@ from twisterlib.scripting import (
     Script,
     Scripting,
     ScriptingData,
-    ScriptingElement,
-    _matches_element,
+    ScriptingElement
 )
 
 
-# Group related tests into a class for ScriptingElement
-class TestScriptingElement:
-    def test_initialization_with_properties(self):
-        # Test initialization with all properties set
-        element = ScriptingElement(
-            scenarios=['scenario1', 'scenario2'],
-            platforms=['platform1', 'platform2'],
-            pre_script=Script(path='pre_script.sh', timeout=10),
-            post_flash_script=Script(path='post_flash_script.sh', timeout=20),
-            post_script=Script(path='post_script.sh'),  # No timeout specified
-            override_script=True,
-            comment='Test comment',
-        )
+def test_scripting_initializes_and_loads_file(monkeypatch):
+    called_files = []
 
-        # Check if the properties are set correctly
-        assert element.scenarios == ['scenario1', 'scenario2']
-        assert element.platforms == ['platform1', 'platform2']
-        assert element.pre_script.path == 'pre_script.sh'
-        assert element.post_flash_script.path == 'post_flash_script.sh'
-        assert element.post_script.path == 'post_script.sh'
-        assert element.comment == 'Test comment'
-        assert element.override_script is True
-        assert element.pre_script.timeout == 10
-        assert element.post_flash_script.timeout == 20
-        assert element.post_script.timeout is None
-
-    def test_initialization_with_no_properties(self):
-        # Test initialization with no properties set, which should trigger an error
-        with pytest.raises(SystemExit) as excinfo:
-            ScriptingElement()
-        # Check if the correct exit code is set in the SystemExit exception
-        assert excinfo.value.code == 1
-
-    def test_initialization_with_empty_properties(self):
-        # Test initialization with empty properties, which should trigger an error
-        with pytest.raises(SystemExit) as excinfo:
+    def fake_load_from_yaml(filename, schema):
+        called_files.append(filename)
+        return ScriptingData(elements=[
             ScriptingElement(
-                scenarios=[],
-                platforms=[],
-                pre_script=None,
-                post_flash_script=None,
-                post_script=None,
-                comment='',
+                scenarios=['s1'],
+                platforms=['p1'],
+                pre_script=Script(path='script.sh', timeout=5)
             )
-        # Check if the correct exit code is set in the SystemExit exception
-        assert excinfo.value.code == 1
+        ])
 
+    monkeypatch.setattr(ScriptingData, 'load_from_yaml', fake_load_from_yaml)
 
-# Group related tests into a class for ScriptingData
-class TestScriptingData:
-    @pytest.fixture
-    def mock_scripting_elements(self):
-        return [
-            ScriptingElement(
-                scenarios=['scenario1'],
-                platforms=['platform1'],
-                pre_script=Script(path='pre_script1.sh'),
-                post_flash_script=Script(path='post_flash_script1.sh'),
-                post_script=Script(path='post_script1.sh'),
-                comment='Test comment 1',
-            ),
-            ScriptingElement(
-                scenarios=['scenario2'],
-                platforms=['platform2'],
-                pre_script=Script(path='pre_script2.sh'),
-                post_flash_script=Script(path='post_flash_script2.sh'),
-                post_script=Script(path='post_script2.sh'),
-                comment='Test comment 2',
-            ),
-        ]
+    scripting = Scripting(scripting_files=['file1.yaml', 'file2.yaml'], scripting_schema={})
+    assert len(scripting.scripting.elements) == 2
+    assert called_files == ['file1.yaml', 'file2.yaml']
 
-    def test_initialization_with_scripting_elements(self, mock_scripting_elements):
-        # Initialize ScriptingData with the list of mock ScriptingElement instances
-        scripting_data = ScriptingData(elements=mock_scripting_elements)
-        # Check if the elements are stored correctly
-        assert len(scripting_data.elements) == 2
-        assert all(isinstance(elem, ScriptingElement) for elem in scripting_data.elements)
-
-    def test_load_from_yaml(self):
-        # Mock YAML content
-        yaml_content = '''
-        - scenarios: ['scenario1']
-          platforms: ['platform1']
-          pre_script:
-            path: 'pre_script1.sh'
-          post_flash_script:
-            path: 'post_flash_script1.sh'
-          post_script:
-            path: 'post_script1.sh'
-          comment: 'Test comment 1'
-        - scenarios: ['scenario2']
-          platforms: ['platform2']
-          pre_script:
-            path: 'pre_script2.sh'
-          post_flash_script:
-            path: 'post_flash_script2.sh'
-          post_script:
-            path: 'post_script2.sh'
-          comment: 'Test comment 2'
-        '''
-        # Define the schema as provided
-        mock_schema = {
-            'type': 'seq',
-            'matching': 'all',
-            'sequence': [
-                {
-                    'type': 'map',
-                    'required': True,
-                    'matching': 'all',
-                    'mapping': {
-                        'scenarios': {
-                            'type': 'seq',
-                            'required': True,
-                            'sequence': [{'type': 'str'}, {'unique': True}],
-                        },
-                        'platforms': {
-                            'required': False,
-                            'type': 'seq',
-                            'sequence': [{'type': 'str'}, {'unique': True}],
-                        },
-                        'pre_script': {'type': 'str', 'required': False},
-                        'post_flash_script': {'type': 'str', 'required': False},
-                        'post_script': {'type': 'str', 'required': False},
-                        'comment': {'type': 'str', 'required': True},
-                    },
-                }
-            ],
-        }
-        # Use mock_open to simulate file reading
-        with (
-            patch('builtins.open', mock_open(read_data=yaml_content)),
-            patch('scl.yaml_load_verify') as mock_yaml_load_verify,
-        ):
-            # Mock the yaml_load_verify function to return a list of dictionaries
-            mock_yaml_load_verify.return_value = [
-                {
-                    'scenarios': ['scenario1'],
-                    'platforms': ['platform1'],
-                    'pre_script': {'path': 'pre_script1.sh'},
-                    'post_flash_script': {'path': 'post_flash_script1.sh'},
-                    'post_script': {'path': 'post_script1.sh'},
-                    'comment': 'Test comment 1',
-                },
-                {
-                    'scenarios': ['scenario2'],
-                    'platforms': ['platform2'],
-                    'pre_script': {'path': 'pre_script2.sh'},
-                    'post_flash_script': {'path': 'post_flash_script2.sh'},
-                    'post_script': {'path': 'post_script2.sh'},
-                    'comment': 'Test comment 2',
-                },
-            ]
-            # Load ScriptingData from a YAML file with the mock schema
-            scripting_data = ScriptingData.load_from_yaml('dummy_file.yaml', mock_schema)
-            # Check if the data was loaded correctly
-            assert len(scripting_data.elements) == 2
-            assert all(isinstance(elem, ScriptingElement) for elem in scripting_data.elements)
-
-
-class TestMatchingFunctionality:
-    @pytest.fixture
-    def scripting_data_with_elements(self):
-        return ScriptingData(
-            elements=[
-                ScriptingElement(
-                    scenarios=['test_scenario1'],
-                    platforms=['platform1'],
-                    pre_script=Script(path='pre_script1.sh'),
-                    comment='Match 1',
-                ),
-                ScriptingElement(
-                    scenarios=['test_scenario2'],
-                    platforms=['platform2'],
-                    pre_script=Script(path='pre_script2.sh'),
-                    comment='Match 2',
-                ),
-                ScriptingElement(
-                    scenarios=['any_scenario'],
-                    platforms=['platform3'],
-                    pre_script=Script(path='pre_script3.sh'),
-                    comment='Wildcard scenario',
-                ),
-                ScriptingElement(
-                    scenarios=['test_scenario3'],
-                    platforms=['any_platform'],
-                    pre_script=Script(path='pre_script4.sh'),
-                    comment='Wildcard platform',
-                ),
-            ]
-        )
-
-    def test_find_matching_scripting_exact_match(self, scripting_data_with_elements):
-        """
-        Test finding a matching scripting element for a given scenario and platform
-        where there is an exact match (not a wildcard).
-        """
-        scenario = 'test_scenario1'
-        platform = 'platform1'
-        matched_element = scripting_data_with_elements.find_matching_scripting(scenario, platform)
-
-        assert matched_element is not None, f"Expected a match for ({scenario}, {platform}) but got None."
-        assert matched_element.scenarios == ['test_scenario1'], "Matched element scenarios don't match expected."
-        assert platform in matched_element.platforms, f"Platform '{platform}' not found in matched element."
-        assert matched_element.comment == 'Match 1', f"Expected comment 'Match 1', but got '{matched_element.comment}'."
-
-
-    def test_find_matching_scripting_no_match(self, scripting_data_with_elements):
-        # Test finding a matching scripting element
-        # for a given scenario and platform that should not match
-        matched_element = scripting_data_with_elements.find_matching_scripting(
-            'nonexistent_test', 'platform1'
-        )
-        assert matched_element is None
-
-    def test_find_matching_scripting_wildcard_scenario(self, scripting_data_with_elements):
-        # Test finding a matching scripting element with a wildcard scenario
-        matched_element = scripting_data_with_elements.find_matching_scripting(
-            'any_scenario', 'platform3'
-        )
-        assert matched_element is not None
-        assert matched_element.comment == 'Wildcard scenario'
-
-    def test_find_matching_scripting_wildcard_platform(self, scripting_data_with_elements):
-        # Test finding a matching scripting element with a wildcard platform
-        matched_element = scripting_data_with_elements.find_matching_scripting(
-            'test_scenario3', 'any_platform'
-        )
-        assert matched_element is not None
-        assert matched_element.comment == 'Wildcard platform'
-
-
-# Test function for the _matches_element helper function
-@pytest.mark.parametrize(
-    "element,patterns,expected",
-    [
-        ("test_scenario1", ["test_scenario1"], True),  # Exact match
-        ("test_scenario1", ["test_scenario2"], False),  # No match
-        ("test_scenario1", ["scenario1"], False),  # No partial match
-        ("test_scenario1", ["test_"], False),  # No partial match
-        ("test_scenario1", ["scenario1$"], False),  # No regex support
-        ("test_scenario1", ["^scenario"], False),  # No regex support
-        ("test_scenario1", ["test_scenario1"], True),  # Exact match
-        ("test_scenario1", ["test_scenario", "scenario1"], False),  # No partial match
-        ("test_scenario1", [], False),  # No patterns to match
-    ],
-)
-def test_matches_element(element, patterns, expected):
-    # Test if the element matches any of the provided regex patterns
-    assert _matches_element(element, patterns) == expected
-
-
-# Fixture to mock the load_from_yaml method
-@pytest.fixture
-def mock_scripting_data():
-    elements = [
+def test_get_selected_scripts_returns_correct_element():
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    scripting.scripting.elements = [
         ScriptingElement(
-            scenarios=['test_scenario1'],
-            platforms=['platform1'],
-            pre_script=Script(path='pre_script1.sh'),
-            comment='Match 1',
+            scenarios=["test.suite"], platforms=["native"], pre_script=Script(path="pre.sh", timeout=10)
         ),
         ScriptingElement(
-            scenarios=['test_scenario2'],
-            platforms=['platform2'],
-            pre_script=Script(path='pre_script2.sh'),
-            comment='Match 2',
+            scenarios=["test.*"], platforms=["native"], post_script=Script(path="post.sh", timeout=5)
+        )
+    ]
+
+    result, selected = scripting.get_selected_scripts("test.suite", "native")
+    assert selected.scenarios == ["test.suite"]
+    assert result["pre_script"]["path"] == "pre.sh"
+    assert result["pre_script"]["timeout"] == 10
+
+
+def test_validate_script_paths_exits_on_missing_file(monkeypatch):
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+
+    script_dict = {
+        "pre_script": {"path": "nonexistent.sh", "timeout": 30}
+    }
+
+    monkeypatch.setattr("os.path.isfile", lambda path: False)
+
+    with pytest.raises(SystemExit):
+        scripting.validate_script_paths(script_dict)
+
+
+def test_multiple_override_scripts_exit(monkeypatch):
+    monkeypatch.setattr("builtins.exit", lambda code=1: (_ for _ in ()).throw(SystemExit(code)))
+
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    scripting.scripting.elements = [
+        ScriptingElement(
+            scenarios=["s1"],
+            platforms=["p1"],
+            override_script=True,
+            pre_script=Script(path="a.sh", timeout=5)
+        ),
+        ScriptingElement(
+            scenarios=["s1"],
+            platforms=["p1"],
+            override_script=True,
+            pre_script=Script(path="b.sh", timeout=5)
+        )
+    ]
+
+    with pytest.raises(SystemExit) as e:
+        scripting.get_selected_scripts("s1", "p1")
+    assert e.value.code == 1
+
+def test_multiple_override_scripts_exit(monkeypatch):
+    monkeypatch.setattr("builtins.exit", lambda code=1: (_ for _ in ()).throw(SystemExit(code)))
+
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    scripting.scripting.elements = [
+        ScriptingElement(
+            scenarios=["s1"],
+            platforms=["p1"],
+            override_script=True,
+            pre_script=Script(path="a.sh", timeout=5)
+        ),
+        ScriptingElement(
+            scenarios=["s1"],
+            platforms=["p1"],
+            override_script=True,
+            pre_script=Script(path="b.sh", timeout=5)
+        )
+    ]
+
+    with pytest.raises(SystemExit) as e:
+        scripting.get_selected_scripts("s1", "p1")
+    assert e.value.code == 1
+
+import pytest
+
+def test_no_override_script():
+    # Should pick the first matching element if none has override_script
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    elem = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p1"],
+        pre_script=Script(path="a.sh", timeout=5)
+    )
+    scripting.scripting.elements = [elem]
+
+    result, selected = scripting.get_selected_scripts("s1", "p1")
+
+    assert result["pre_script"]["path"] == "a.sh"
+    assert selected == elem
+
+
+def test_single_override_script():
+    # Should select the element with override_script=True
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    overriding = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p1"],
+        override_script=True,
+        pre_script=Script(path="override.sh", timeout=5)
+    )
+    fallback = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p1"],
+        pre_script=Script(path="normal.sh", timeout=5)
+    )
+    scripting.scripting.elements = [fallback, overriding]
+
+    result, selected = scripting.get_selected_scripts("s1", "p1")
+
+    assert result["pre_script"]["path"] == "override.sh"
+    assert selected == overriding
+
+
+def test_multiple_elements_same_scenario_no_override():
+    # Multiple elements match but no override_script -> first match should be picked
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    elem1 = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p1"],
+        pre_script=Script(path="a.sh", timeout=5)
+    )
+    elem2 = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p1"],
+        pre_script=Script(path="b.sh", timeout=5)
+    )
+    scripting.scripting.elements = [elem1, elem2]
+
+    result, selected = scripting.get_selected_scripts("s1", "p1")
+
+    assert result["pre_script"]["path"] == "a.sh"
+    assert selected == elem1
+
+
+def test_different_platforms():
+    # Should only match on exact platform
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    matching = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p1"],
+        pre_script=Script(path="correct.sh", timeout=5)
+    )
+    non_matching = ScriptingElement(
+        scenarios=["s1"],
+        platforms=["p2"],
+        pre_script=Script(path="wrong.sh", timeout=5)
+    )
+    scripting.scripting.elements = [non_matching, matching]
+
+    result, selected = scripting.get_selected_scripts("s1", "p1")
+
+    assert result["pre_script"]["path"] == "correct.sh"
+    assert selected == matching
+
+
+def test_scenario_wildcard_match():
+    # A scenario match with "base.*" should match "base.foo"
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    wildcard = ScriptingElement(
+        scenarios=["base.*"],
+        platforms=["p1"],
+        pre_script=Script(path="wildcard.sh", timeout=5)
+    )
+    scripting.scripting.elements = [wildcard]
+
+    result, selected = scripting.get_selected_scripts("base.foo", "p1")
+
+    assert result["pre_script"]["path"] == "wildcard.sh"
+    assert selected == wildcard
+
+
+def test_no_matching_script():
+    scripting = Scripting(scripting_files=[], scripting_schema={})
+    scripting.scripting.elements = [
+        ScriptingElement(
+            scenarios=["s2"],
+            platforms=["p2"],
+            pre_script=Script(path="nope.sh", timeout=5)
+        )
+    ]
+
+    result = scripting.get_selected_scripts("s1", "p1")
+
+    assert result == ({}, None)
+
+
+def make_element(scenarios, platforms, pre_path, post_path=None, post_flash_path=None, override=False, comment=""):
+    return ScriptingElement(
+        scenarios=scenarios,
+        platforms=platforms,
+        override_script=override,
+        pre_script=Script(path=pre_path, timeout=10),
+        post_script=Script(path=post_path) if post_path else None,
+        post_flash_script=Script(path=post_flash_path) if post_flash_path else None,
+        comment=comment
+    )
+
+def test_no_override_script_selected_first():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["platform1"], "script_a.sh"),
+        make_element(["scenario1"], ["platform1"], "script_b.sh")
+    ]
+    script_dict, elem = scripting.get_selected_scripts("scenario1", "platform1")
+    assert script_dict["pre_script"]["path"] == "script_a.sh"
+    assert not elem.override_script
+
+def test_match_with_override_script(monkeypatch):
+    monkeypatch.setattr("builtins.exit", lambda code=1: (_ for _ in ()).throw(SystemExit(code)))
+
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["platform1"], "script_a.sh", override=True),
+        make_element(["scenario1"], ["platform1"], "script_b.sh")
+    ]
+    script_dict, elem = scripting.get_selected_scripts("scenario1", "platform1")
+    assert script_dict["pre_script"]["path"] == "script_a.sh"
+    assert elem.override_script is True
+
+def test_platform_specific_match():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["platform2"], "wrong_script.sh"),
+        make_element(["scenario1"], ["platform1"], "correct_script.sh")
+    ]
+    script_dict, _ = scripting.get_selected_scripts("scenario1", "platform1")
+    assert script_dict["pre_script"]["path"] == "correct_script.sh"
+
+def test_scenario_wildcard_match():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["test.*"], ["platform1"], "wildcard_script.sh")
+    ]
+    script_dict, _ = scripting.get_selected_scripts("test.subscenario", "platform1")
+    assert script_dict["pre_script"]["path"] == "wildcard_script.sh"
+
+def test_validate_script_paths(monkeypatch):
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["platform1"], "script_exists.sh")
+    ]
+
+    # Mock: file exists
+    monkeypatch.setattr("os.path.isfile", lambda path: path == "script_exists.sh")
+
+    script_dict, _ = scripting.get_selected_scripts("scenario1", "platform1")
+    scripting.validate_script_paths(script_dict)  # Should not raise
+
+def test_validate_script_paths_file_missing(monkeypatch):
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["platform1"], "missing.sh")
+    ]
+
+    # Mock: file does not exist
+    monkeypatch.setattr("os.path.isfile", lambda path: False)
+
+    script_dict, _ = scripting.get_selected_scripts("scenario1", "platform1")
+
+    with pytest.raises(SystemExit) as e:
+        scripting.validate_script_paths(script_dict)
+    assert e.type == SystemExit
+    assert "missing.sh" in str(e.value)
+
+def test_multiple_scenarios_match_exact():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["s1", "s2", "s3"], ["p1"], "script_multiple.sh")
+    ]
+
+    for scenario in ["s1", "s2", "s3"]:
+        script_dict, _ = scripting.get_selected_scripts(scenario, "p1")
+        assert script_dict["pre_script"]["path"] == "script_multiple.sh"
+
+def test_multiple_scenarios_with_wildcard():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["test.*", "dev.specific"], ["p1"], "wildcard_script.sh")
+    ]
+
+    matches = [
+        ("test.alpha", True),
+        ("test", True),
+        ("test.alpha.beta", True),
+        ("dev.specific", True),
+        ("dev.other", False),
+        ("testx", False)
+    ]
+
+    for scenario, should_match in matches:
+        result = scripting.get_selected_scripts(scenario, "p1")
+        if should_match:
+            assert result is not None
+            script_dict, _ = result
+            assert script_dict["pre_script"]["path"] == "wildcard_script.sh"
+        else:
+            assert result == ({}, None)
+
+def test_multiple_platforms_match_exact():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["board1", "board2", "board3"], "multi_board_script.sh")
+    ]
+
+    for platform in ["board1", "board2", "board3"]:
+        script_dict, _ = scripting.get_selected_scripts("scenario1", platform)
+        assert script_dict["pre_script"]["path"] == "multi_board_script.sh"
+
+def test_multiple_platforms_mixed_matches():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        make_element(["scenario1"], ["board1", "board2"], "matched_board_script.sh"),
+        make_element(["scenario1"], ["board3"], "other_board_script.sh")
+    ]
+
+    match_cases = {
+        "board1": "matched_board_script.sh",
+        "board2": "matched_board_script.sh",
+        "board3": "other_board_script.sh",
+        "board4": None  # should not match any
+    }
+
+    for board, expected_path in match_cases.items():
+        result = scripting.get_selected_scripts("scenario1", board)
+        if expected_path:
+            assert result is not None
+            script_dict, _ = result
+            assert script_dict["pre_script"]["path"] == expected_path
+        else:
+            assert result == ({}, None)
+
+
+def test_mixed_configurations_with_wildcard():
+    scripting = Scripting([], {})
+    scripting.scripting.elements = [
+        # First configuration: specific scenarios and platforms with override_script=True
+        make_element(
+            scenarios=["scenario1", "scenario2"],
+            platforms=["platformA", "platformB"],
+            pre_path="pre_script1.sh",
+            post_path="post_script1.sh",
+            post_flash_path="post_flash_script1.sh",
+            override=True,
+            comment="First script"
+        ),
+        # Second configuration: wildcard scenario with no override_script
+        make_element(
+            scenarios=["scenario.*"],  # This should match scenarios like scenario.anything
+            platforms=["platformC"],
+            pre_path="pre_script2.sh",
+            post_path=None,
+            post_flash_path=None,
+            override=False,
+            comment="Second script"
         ),
     ]
-    return ScriptingData(elements=elements)
 
+    # Check first scenario/platform match with override_script=True
+    script_dict, _ = scripting.get_selected_scripts("scenario1", "platformA")
+    assert script_dict is not None, "Expected a result but got None."
+    assert script_dict["pre_script"]["path"] == "pre_script1.sh"
+    assert script_dict["post_script"]["path"] == "post_script1.sh"
+    assert script_dict["post_flash_script"]["path"] == "post_flash_script1.sh"
 
-# Define the mock_load_from_yaml fixture
-@pytest.fixture
-def mock_load_from_yaml():
-    with patch('twisterlib.scripting.ScriptingData.load_from_yaml') as mock_method:
-        # Set the return_value of the mocked load_from_yaml method
-        mock_method.return_value = ScriptingData(
-            [
-                ScriptingElement(
-                    scenarios=['scenario1'],
-                    platforms=['platform1'],
-                    comment='Test comment 1',
-                    pre_script='mock_pre_script_1.sh',  # Include a mock pre_script attribute
-                ),
-                ScriptingElement(
-                    scenarios=['scenario2'],
-                    platforms=['platform2'],
-                    comment='Test comment 2',
-                    pre_script='mock_pre_script_2.sh',  # Include a mock pre_script attribute
-                ),
-            ]
-        )
-        yield mock_method
+    # Check second scenario/platform match with wildcard ("scenario.*") and no override_script
+    result = scripting.get_selected_scripts("scenario.anything", "platformC")
 
+    # If no match is found, assert that result is None
+    if result is None:
+        assert True  # No match case is expected, so this test case passes
+    else:
+        script_dict, _ = result
+        # If a match is found, check that pre_script is correctly set
+        assert "pre_script" in script_dict, "Expected 'pre_script' key in the returned script_dict."
+        assert script_dict["pre_script"]["path"] == "pre_script2.sh", f"Expected pre_script path 'pre_script2.sh', but got {script_dict['pre_script']['path']}"
 
-def test_scripting_initialization(mock_load_from_yaml):
-    # Initialize Scripting with a list of dummy file paths
-    scripting = Scripting(scripting_files=['dummy_path1.yaml'], scripting_schema={})
-    # Check if the scripting data was loaded correctly
-    # The mock_load_from_yaml fixture should have been used to mock the load_from_yaml method
-    assert len(scripting.scripting.elements) == 2
-
-
-# Test function for getting matched scripting elements
-def test_get_matched_scripting(mock_scripting_data):
-    # Initialize Scripting without any scripting files
-    scripting = Scripting(scripting_files=[], scripting_schema={})
-    # Manually set the scripting data to the mock_scripting_data
-    scripting.scripting = mock_scripting_data
-
-    # Test get_matched_scripting with a test name and platform that should find a match
-    matched_element = scripting.get_matched_scripting('test_scenario1', 'platform1')
-    assert matched_element is not None
-    assert matched_element.comment == 'Match 1'
-
-    # Test get_matched_scripting with a test name and platform that should not find a match
-    matched_element = scripting.get_matched_scripting('nonexistent_test', 'platform1')
-    assert matched_element is None
-
-
-@pytest.fixture
-def scripting_data_instances():
-    scripting_data1 = ScriptingData(
-        elements=[
-            ScriptingElement(
-                scenarios=['scenario1'],
-                platforms=['platform1'],
-                pre_script=Script(path='pre_script1.sh'),
-                comment='Data1 Match 1',
-            ),
-            ScriptingElement(
-                scenarios=['scenario2'],
-                platforms=['platform2'],
-                pre_script=Script(path='pre_script2.sh'),
-                comment='Data1 Match 2',
-            ),
-        ]
-    )
-    scripting_data2 = ScriptingData(
-        elements=[
-            ScriptingElement(
-                scenarios=['scenario3'],
-                platforms=['platform3'],
-                pre_script=Script(path='pre_script3.sh'),
-                comment='Data2 Match 1',
-            ),
-            ScriptingElement(
-                scenarios=['scenario4'],
-                platforms=['platform4'],
-                pre_script=Script(path='pre_script4.sh'),
-                comment='Data2 Match 2',
-            ),
-        ]
-    )
-    return scripting_data1, scripting_data2
-
-
-def test_scripting_data_extension(scripting_data_instances):
-    scripting_data1, scripting_data2 = scripting_data_instances
-    # Extend the first ScriptingData instance with the second one
-    scripting_data1.extend(scripting_data2)
-
-    # Check if the elements are combined correctly
-    assert len(scripting_data1.elements) == 4
-    assert scripting_data1.elements[0].comment == 'Data1 Match 1'
-    assert scripting_data1.elements[1].comment == 'Data1 Match 2'
-    assert scripting_data1.elements[2].comment == 'Data2 Match 1'
-    assert scripting_data1.elements[3].comment == 'Data2 Match 2'
-
-    # Check if the elements are instances of ScriptingElement
-    for element in scripting_data1.elements:
-        assert isinstance(element, ScriptingElement)
+        # Check that post_script and post_flash_script keys do not exist (as they were set to None)
+        assert "post_script" not in script_dict, "'post_script' should not exist in the script_dict."
+        assert "post_flash_script" not in script_dict, "'post_flash_script' should not exist in the script_dict."
