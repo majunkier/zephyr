@@ -705,6 +705,25 @@ class DeviceHandler(Handler):
 
         return serial_device, ser_pty_process
 
+    def _assign_script_path(self, scripts, script_type, current_path, override):
+        for script in scripts:
+            if script.get("type") == script_type:
+                path = script.get("path")
+                timeout = script.get("timeout", 30)  # default fallback
+                if current_path is None or override:
+                    return path, timeout
+        return current_path, None
+
+    def _matches_scenario(self, test_id, scenarios):
+        for scenario in scenarios:
+            if scenario.endswith(".*"):
+                prefix = scenario[:-2]  # remove '.*'
+                if test_id.startswith(prefix):
+                    return True
+            elif scenario == test_id:
+                return True
+        return False
+
     def handle(self, harness):
         runner = None
         hardware = self.get_hardware()
@@ -727,10 +746,28 @@ class DeviceHandler(Handler):
         post_script = hardware.post_script
         script_param = hardware.script_param
 
+
+        skrypty = hardware.scripts
+        test_id = self.instance.testsuite.id
+        hw_platform = hardware.platform
+
+        for entry in skrypty:
+            scenarios = entry.get("scenario", [])
+            platforms = entry.get("platform", [])
+            override = entry.get("override_script", False)
+#################### dodaj timeouty CZAA POPRAWIC
+#################### dodaj timeouty CZAA POPRAWIC
+#################### dodaj timeouty CZAA POPRAWIC
+#################### dodaj timeouty CZAA POPRAWIC
+
+            if self._matches_scenario(test_id, scenarios) and hw_platform in platforms:
+                scripts = entry.get("scripts", [])
+                pre_script, pre_script_timeout = self._assign_script_path(scripts, "pre_script", pre_script, override)
+                post_flash_script, post_flash_timeout = self._assign_script_path(scripts, "post_flash_script", post_flash_script, override)
+                post_script, post_script_timeout = self._assign_script_path(scripts, "post_script", post_script, override)
+
         if pre_script:
-            timeout = 30
-            if script_param:
-                timeout = script_param.get("pre_script_timeout", timeout)
+            timeout = pre_script_timeout or script_param.get("pre_script_timeout", 30) if script_param else 30
             self.run_custom_script(pre_script, timeout)
 
         flash_timeout = hardware.flash_timeout
@@ -796,9 +833,7 @@ class DeviceHandler(Handler):
             flash_error = True
 
         if post_flash_script:
-            timeout = 30
-            if script_param:
-                timeout = script_param.get("post_flash_timeout", timeout)
+            timeout = post_flash_timeout or script_param.get("post_flash_timeout", 30) if script_param else 30
             self.run_custom_script(post_flash_script, timeout)
 
         # Connect to device after flashing it
@@ -840,9 +875,7 @@ class DeviceHandler(Handler):
         self._final_handle_actions(harness, handler_time)
 
         if post_script:
-            timeout = 30
-            if script_param:
-                timeout = script_param.get("post_script_timeout", timeout)
+            timeout = post_script_timeout or script_param.get("post_script_timeout", 30) if script_param else 30
             self.run_custom_script(post_script, timeout)
 
         self.make_dut_available(hardware)

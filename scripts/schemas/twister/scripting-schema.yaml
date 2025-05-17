@@ -1,0 +1,59 @@
+type: seq
+matching: all
+sequence:
+  - type: map
+    required: true
+    matching: all
+    mapping:
+      "scenarios":
+        type: seq
+        required: true
+        sequence:
+          - type: str
+          - unique: true
+      "platforms":
+        required: true
+        type: seq
+        sequence:
+          - type: str
+          - unique: true
+      "override_script":
+        type: bool
+        default: false
+        required: false
+      "pre_script":
+        type: map
+        required: false
+        mapping:
+          "path":
+            type: str
+            required: true
+          "timeout":
+            type: int
+            default: 30
+            required: false
+      "post_flash_script":
+        type: map
+        required: false
+        mapping:
+          "path":
+            type: str
+            required: true
+          "timeout":
+            type: int
+            default: 30
+            required: false
+      "post_script":
+        type: map
+        required: false
+        mapping:
+          "path":
+            type: str
+            required: true
+          "timeout":
+            type: int
+            default: 30
+            required: false
+      "comment":
+        type: str
+        required: true

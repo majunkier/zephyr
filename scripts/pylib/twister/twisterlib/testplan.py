@@ -35,6 +35,7 @@ from twisterlib.quarantine import Quarantine
 from twisterlib.statuses import TwisterStatus
 from twisterlib.testinstance import TestInstance
 from twisterlib.testsuite import TestSuite, scan_testsuite_path
+from twisterlib.scripting import Scripting, Script
 from zephyr_module import parse_modules
 
 logger = logging.getLogger('twister')
@@ -91,6 +92,10 @@ class TestPlan:
         os.path.join(ZEPHYR_BASE,
                      "scripts", "schemas", "twister", "quarantine-schema.yaml"))
 
+    scripting_schema = scl.yaml_load(
+        os.path.join(ZEPHYR_BASE,
+                     "scripts", "schemas", "twister", "scripting-schema.yaml"))
+
     tc_schema_path = os.path.join(
         ZEPHYR_BASE,
         "scripts",
@@ -106,7 +111,7 @@ class TestPlan:
 
         self.options = env.options
         self.env = env
-
+        self.scripting = None
         # Keep track of which test cases we've filtered out and why
         self.testsuites = {}
         self.quarantine = None
@@ -222,6 +227,10 @@ class TestPlan:
                     logger.debug(f'Quarantine file {quarantine_file} is empty')
             self.quarantine = Quarantine(ql)
 
+        sl = self.options.scripting_list
+        if sl:
+            self.scripting = Scripting(sl, self.scripting_schema)
+
     def load(self):
 
         if self.options.report_suffix:
@@ -261,6 +270,10 @@ class TestPlan:
             self.selected_platforms = set(p.platform.name for p in self.instances.values())
         else:
             self.apply_filters()
+
+        if self.scripting:
+            logger.info("_____________\n")
+            self.fill_script_structure()
 
         if self.options.subset:
             s =  self.options.subset
@@ -1239,6 +1252,29 @@ class TestPlan:
 
         self.link_dir_counter += 1
 
+    def fill_script_structure(self):
+            testy = self.scripting.get_split_scripts_structure()
+            cleared_scripts = self.scripting.remove_duplicates_and_handle_overrides(testy)
+            logger.info(f"cleared_scripts {testy}")
+            self.scripting.check_for_conflicts(cleared_scripts)
+            # sys.exit(1)
+
+            for dut in self.env.hwm.duts:
+
+                dut.scripts = []
+
+                for entry in cleared_scripts:
+                    if dut.platform in str(entry.get('platform')) :
+                        script_types = {"pre_script", "post_flash_script", "post_script"}
+                        for script_type in script_types:
+                            dupa = getattr(dut, script_type, None)
+                            logger.info(f"dupa: {dupa}")
+                            if getattr(dut.platform, script_type, None) is not None:
+
+                                logger.error("Provided script from multiple sources. Remove scripting list or other.")
+                                sys.exit(1)
+
+                        dut.scripts.append(entry)
 
 def change_skip_to_error_if_integration(options, instance):
     ''' All skips on integration_platforms are treated as errors.'''
