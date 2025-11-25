@@ -119,6 +119,19 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 	iframe = Z_STACK_PTR_TO_FRAME(struct __basic_sf, stack_ptr);
 #if defined(CONFIG_USERSPACE)
 	thread->arch.priv_stack_start = 0;
+
+#if defined(CONFIG_ARM_STORE_EXC_RETURN) || defined(CONFIG_USERSPACE)
+	thread->arch.mode = 0;
+#if defined(CONFIG_ARM_STORE_EXC_RETURN)
+	thread->arch.mode_exc_return = DEFAULT_EXC_RETURN;
+#endif
+#if FP_GUARD_EXTRA_SIZE > 0
+	if ((thread->base.user_options & K_FP_REGS) != 0) {
+		thread->arch.mode |= Z_ARM_MODE_MPU_GUARD_FLOAT_Msk;
+	}
+#endif
+#endif
+
 	if ((thread->base.user_options & K_USER) != 0) {
 		setup_priv_stack(thread);
 		iframe = Z_STACK_PTR_TO_FRAME(struct __basic_sf, thread->arch.priv_stack_end);
@@ -143,17 +156,7 @@ void arch_new_thread(struct k_thread *thread, k_thread_stack_t *stack,
 	thread->callee_saved.psp = (uint32_t)iframe;
 	thread->arch.basepri = 0;
 
-#if defined(CONFIG_ARM_STORE_EXC_RETURN) || defined(CONFIG_USERSPACE)
-	thread->arch.mode = 0;
-#if defined(CONFIG_ARM_STORE_EXC_RETURN)
-	thread->arch.mode_exc_return = DEFAULT_EXC_RETURN;
-#endif
-#if FP_GUARD_EXTRA_SIZE > 0
-	if ((thread->base.user_options & K_FP_REGS) != 0) {
-		thread->arch.mode |= Z_ARM_MODE_MPU_GUARD_FLOAT_Msk;
-	}
-#endif
-#endif
+
 	/*
 	 * initial values in all other registers/thread entries are
 	 * irrelevant.
