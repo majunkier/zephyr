@@ -65,7 +65,7 @@ ZTEST(starve_fn, test_starve)
 
 		int32_t now_diff = now - last_now;
 
-		zassert_true(now_diff > 0,
+		zassert_true(now_diff >= 0,
 			     "%sTime went backwards by %d: was %u.%03u\n",
 			     tag(), -now_diff, last_now / MSEC_PER_SEC,
 			     last_now % MSEC_PER_SEC);
